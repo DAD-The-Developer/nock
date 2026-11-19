@@ -1,0 +1,14 @@
+<Bindings>
+  <Binding name="NOCK_NOTES" header="NOCK">
+    Nock_ToggleNotes()
+  </Binding>
+  <Binding name="NOCK_WINDOW">
+    Nock_ToggleWindow()
+  </Binding>
+  <Binding name="NOCK_STYLE">
+    Nock_ToggleStyle()
+  </Binding>
+  <Binding name="NOCK_THREAT_UNLOCK">
+    Nock_ToggleThreatUnlock()
+  </Binding>
+</Bindings>

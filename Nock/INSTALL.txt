@@ -1,0 +1,55 @@
+Installing Nock 3.2.0
+=====================
+
+Nock is a helper for Hunter characters in World of Warcraft: Forever.
+It does not play the game for you. You still aim and press the keys.
+
+1. Close World of Warcraft: Forever if it is open.
+
+2. Unzip this file. You should get a folder named Nock, with Nock.toc
+   inside it.
+
+3. Copy that whole Nock folder into:
+
+     World of Warcraft\_forever_\Interface\AddOns
+
+   When you are done, this file should exist:
+
+     World of Warcraft\_forever_\Interface\AddOns\Nock\Nock.toc
+
+   On a Mac that folder is usually:
+
+     /Applications/World of Warcraft/_forever_/Interface/AddOns
+
+   Do not copy it into the regular (non-Forever) AddOns folder.
+
+4. Start Forever. At the character screen, open AddOns and make sure
+   Nock is enabled. If the game says it is out of date, also enable
+   "Load out of date AddOns".
+
+5. Log in on a Hunter. The first time you install Nock, fully restart
+   the game (quit and open it again, not just /reload) so the art
+   loads. After that, open Nock in any of these ways:
+
+     - type /nock
+     - press Escape and click Nock
+     - click the small Nock button on the screen
+     - set the "Open Nock" key in Key Bindings > AddOns > Nock
+
+Switching looks
+---------------
+Nock starts with the Emerald bow. To use the Gunsmith rifle look, open
+Nock, go to Options, and choose Style: Gunsmith. You can also type
+/nock style gun or /nock style emerald. The choice is saved for that
+character.
+
+A few notes
+-----------
+Nock fills empty keys with a hunter layout the first time you log in.
+Keys you already set are left alone. If you have side mouse buttons,
+Mouse 4, Mouse 5, and a wheel click are used for Wing Clip, Concussive
+Shot, and Feign Death — but only if those buttons are free. Turn that
+off in Options, or with /nock mouse off.
+
+The Nock button can be moved: hold Shift and drag it. Type
+/nock button reset if you want it back in the default spot.

@@ -1,0 +1,53 @@
+# Release zips are attached to GitHub Releases, not stored in the tree.
+*.zip
+share/
+
+# Local backups of older addon copies
+Nock.bak-*/
+*.bak
+
+# In-game screenshots and mockups drawn over live UI
+ingame-*.png
+ingame-*.jpg
+nock-*-preview*.png
+nock-*-preview*.jpg
+nock-*-compare.png
+mockup-*.png
+mockup-*.jpg
+keymap-2.1.png
+
+# Install scripts that contain a local PC path
+install_nock_*.ps1
+
+# Packed texture preview sheets (not part of the addon)
+Nock/Media/Textures/preview/
+art/**/previews/
+art/**/preview/
+
+# Internal planning notes and screenshot-based mockup scripts
+PLAN-*.md
+art/mockup_*.py
+art/cut_2_2.py
+art/preview_320.py
+tools/preview_*.py
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.idea/
+.vscode/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Logs, env, secrets, WoW saved variables
+*.log
+*.env
+.env.*
+WTF/
+SavedVariables/

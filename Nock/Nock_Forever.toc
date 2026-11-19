@@ -1,0 +1,26 @@
+## Interface: 16001
+## Title: Nock
+## Notes: Keyboard hunter hands, one-click BM/Marks profiles (keys, macros, talent plan) and written field manuals for World of Warcraft: Forever.
+## Author: Nock
+## Version: 3.2.0
+## SavedVariables: NockDB
+## SavedVariablesPerCharacter: NockCharDB
+## IconTexture: Interface\Icons\ClassIcon_Hunter
+## AddonCompartmentFunc: Nock_OnAddonCompartmentClick
+## AddonCompartmentFuncOnEnter: Nock_OnAddonCompartmentEnter
+## AddonCompartmentFuncOnLeave: Nock_OnAddonCompartmentLeave
+
+Theme.lua
+Styles.lua
+Nock.lua
+UI_ActionBars.lua
+Guides.lua
+Profiles.lua
+MyRotation.lua
+UI.lua
+UI_MyRotation.lua
+UI_Glow.lua
+Setup.lua
+Threat.lua
+UI_Options.lua
+UI_Launcher.lua

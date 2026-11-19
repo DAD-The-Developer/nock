@@ -1,0 +1,542 @@
+Nock — dummy-style how to use it
+================================
+
+This is the "I have never installed an addon" version.
+If a word sounds fancy, skip it and just do the numbered steps.
+
+
+What Nock is
+------------
+Nock is a helper for Hunter characters in World of Warcraft: Forever,
+especially Beast Mastery and Marksmanship.
+
+It does four things:
+
+1. Puts your hunter spells on easy keyboard keys (1, 2, 3, and so on).
+2. Shows a little overlay that labels those keys, like cheat-sheet stickers
+   on your keyboard.
+3. When you train a new hunter spell, it explains what Forever changed
+   about that spell, in plain chat text.
+4. It has a written talent guide: what to pick while you level, and what
+   to respec into at 60 for more damage.
+
+It does NOT play the game for you.
+It will not press keys, pick targets, or watch a fight and say
+"press Aimed Shot now." That would break Blizzard's addon rules.
+You still aim, you still press the buttons, you still decide.
+
+
+New in 2.1: the ergonomic keymap and your mouse
+-----------------------------------------------
+2.1 moves a few keys so you can kite with your left hand on WASD, and
+puts three spells on your mouse (on by default):
+
+  Mouse 4 (side, back)    Wing Clip (it was Shift-Z; Shift-Z is now empty)
+  Mouse 5 (side, front)   Concussive Shot (Q still works)
+  Wheel click             Feign Death (E still works)
+  Shift + Mouse 4 / 5     Strider Kick / Scatter Shot, once you have them
+
+Scrolling the wheel stays camera zoom. Left and right click are never
+touched. A mouse button that already does something (yours, or a
+Blizzard default) is left alone; then Wing Clip stays on Shift-Z.
+Careful: a hard scroll can click the wheel, and Feign Death has a
+cooldown. Options > "Mouse buttons (Wing Clip, Concussive, Feign)"
+turns the mouse off (Wing Clip goes back to Shift-Z); /nock mouse off
+does the same.
+
+The first time you log in on 2.1 a small window asks once:
+  Move my keys     move Nock's keys to 2.1 and use the mouse
+  Not now          change nothing (the red ! stays on the key bar;
+                   click it, or type /nock migrate, to get the window back)
+  Keep mouse off   move the keyboard keys only
+Only keys that still hold Nock's own spell move. Keys you set yourself
+stay yours. "Restore my old keys" in Options undoes all of it.
+/nock keys lists every key.
+
+The 2.1 keys:
+  1-6         Open Fire, Arcane (Hawk at BM 60), Aimed, Multi, Serpent, melee
+  Shift-1..6  Rapid Fire, Arcane/Trueshot, Sniper (MM), Volley, Scorpid, Lacerate
+  Alt-1..5    racial, Distracting, Tranquilizing, Flare, Viper Sting
+  Q / Shift-Q / Alt-Q / Ctrl-Q   Concussive / Scatter / Strider Kick / Scare Beast
+  E / Shift-E / Alt-E / Ctrl-E   Feign Death / Deterrence / racial / Disengage
+  R / Shift-R / Alt-R            Hunter's Mark / Beast Lore / Eagle Eye
+  F / Shift-F / Alt-F / Ctrl-F   Freezing / Frost / Immolation / Explosive trap
+  T / Shift-T / Alt-T / Ctrl-T   Pet attack / follow / stay / Feed Pet
+  G / Shift-G / Alt-G / Ctrl-G   Mend Pet / Bestial Wrath / Intimidation / Call-Revive
+  X / Shift-X / Alt-X / Ctrl-X   Hawk / Cheetah / Monkey / Pack
+  Z / Ctrl-Z                     Aspect of the Wild / Aspect of the Beast
+  H / Shift-H                    Eyes of the Beast / Tame Beast
+  Shift / Alt / Ctrl-C           Track Beasts / Humanoids / Hidden
+  C and V are Blizzard's again (character pane, nameplates).
+  Ctrl-1..0 stay Blizzard's pet bar (Ctrl-8/9/0 = Aggressive/Defensive/Passive).
+A key only gets its spell once you have learned it.
+
+
+The cheat sheet (new in version 1.9)
+------------------------------------
+Click the Nock minimap button. A small card pops up. That's your whole
+rotation in a few big lines. For a level-14 Beast Mastery hunter:
+
+  R then 1   Mark it, then start the fight
+  2          Press every time it's off cooldown
+  Q / M5     It's running at me: slow it         (Concussive Shot)
+  M4         It reached me: clip it, walk away   (Wing Clip, mouse button 4)
+
+Later you also get:
+  4          2+ mobs: press this one instead     (Multi-Shot, level 18)
+  E / MMB    Oh no: play dead                    (Feign Death, level 30)
+
+The card only shows spells you know, with the keys they are on right
+now. "+ More detail" under it opens the long lists. The My Rotation tab
+in the Nock window has the same cheat sheet on top, with a "More detail"
+button for everything else.
+
+The key strip (the "Nock  BM Leveling" bar with 1-6 and Q-T) is clickable
+since 1.9: click a tile and it casts, exactly like pressing that key.
+Hover a tile to see the spell and "Click or press 2". Grey tiles are
+spells you haven't learned yet; they do nothing. Wing Clip gets its own
+tile (M4, or Shift-Z with the mouse off) once you learn it at 12.
+A small red "!" on a tile means that key isn't bound to what the tile
+says. The bottom line then reads "Some keys aren't set - click Set me up";
+click the small Set me up button next to it (out of combat).
+In a fight the strip stays where it is: you can't drag, hide or change it
+until the fight is over (Blizzard's rule for clickable buttons).
+
+Wing Clip moved from Shift-6 to Shift-Z in 1.9, and to Mouse 4 in 2.1.
+If you put something else on those keys yourself, Nock leaves it alone.
+
+
+The easy way (new in version 1.8)
+---------------------------------
+1. Log in on your hunter.
+2. A small window pops up: "Nock: Set me up". It already picked a
+   profile for you (BM Leveling below 60). If you want a different one,
+   click the small "change" link next to its name.
+3. Click the big "Nock: Set me up" button. That's it. Your keys, your
+   action bar and Nock's macros are done, and one line in chat says so.
+   (In a fight? It waits until the fight is over.)
+4. From now on Nock keeps up by itself: when you level up, train a new
+   spell or take a talent, it puts the new thing on its key and says
+   so in chat, like "Nock: Multi-Shot is now on 4."
+   If you move a key yourself, Nock leaves that key alone and tells you
+   once. Turn this off with /nock keepup.
+5. When you have a talent point, a gold "Spend talent point" button
+   shows up under the minimap (or under the card). Click it.
+   Turn it off with /nock remind.
+
+Click the Nock minimap button to show or hide the cheat sheet card.
+Right-click it to open the Nock window. The window shows only My
+Rotation and Talents; everything else is on the "More" tab.
+/nock advanced shows all tabs again; /nock simple goes back.
+Lost the popup? Type /nock setup.
+
+
+What you need
+-------------
+- World of Warcraft: Forever (the Forever client, not Retail or Classic).
+- A Hunter character. Nock will politely refuse on other classes.
+- The Nock folder from the zip (the folder that has Nock.toc inside it).
+
+
+Install, like you have never done this before
+---------------------------------------------
+1. Close World of Warcraft completely. Not just the character screen —
+   quit the game.
+
+2. Unzip Nock.zip. You should see a folder named Nock. Open it.
+   Inside you must see files named Nock.toc and Nock.lua.
+   If you see another folder named Nock inside Nock, keep going until
+   you find the folder that actually contains Nock.toc. THAT folder
+   is the one you install.
+
+3. Find your Forever addons folder.
+
+   Windows, typical path:
+
+     World of Warcraft\_forever_\Interface\AddOns
+
+   That sits next to your Retail folder. It is _forever_ with
+   underscores, not the Retail folder.
+
+   Mac, typical path:
+
+     /Applications/World of Warcraft/_forever_/Interface/AddOns
+
+   If the Interface or AddOns folders are missing, create them.
+   The names must match exactly: Interface, then AddOns.
+
+4. Copy the Nock folder into AddOns so the final path looks like:
+
+     ...\Interface\AddOns\Nock\Nock.toc
+
+   Not:
+
+     ...\Interface\AddOns\Nock\Nock\Nock.toc
+
+   and not loose files dumped straight into AddOns.
+
+5. Start World of Warcraft: Forever.
+
+6. At the character-select screen, click AddOns (usually bottom-left).
+   Find Nock in the list and make sure it is checked / enabled.
+
+7. If the game says an addon is out of date, check the box that says
+   something like "Load out of date AddOns." Then enable Nock anyway
+   and tell your friend who shared this (or me) the number you get from
+   typing this in chat later:
+
+     /dump select(4, GetBuildInfo())
+
+8. Log in on your Hunter.
+
+
+First time in game — the 60-second setup
+----------------------------------------
+1. Make sure you are NOT in combat. Stand in town. Do not start this
+   in the middle of a fight. Nock is only allowed to change keys when
+   you are out of combat.
+
+2. Optional but smart: press Escape, open Key Bindings, and turn ON
+   "Character Specific Key Bindings" if you also play other classes
+   on this account. That way Nock only changes keys on this hunter,
+   not on your mage.
+
+3. Type this in chat and press Enter:
+
+     /nock
+
+4. The Nock window opens. It looks like any Blizzard window: your hunter
+   portrait in the corner and six tabs along the bottom (Profiles,
+   My Rotation, Talents, Rotation, Macros, Field Manual). It starts on
+   Profiles.
+
+   You will see four cards. Click one:
+   - BM Leveling or BM 60 if your pet is the star.
+   - MM Leveling or MM 60 if you want to be the big ranged shooter
+     (Sniper Shot, Trueshot Aura, and so on).
+   - Not sure? Click Detect at the bottom. Nock picks the card that
+     matches your talent points and level. It only picks; it does not
+     apply anything.
+
+5. Under the cards is a keyboard preview: 1-6 and Q-T with a spell icon
+   and a little gold keycap on each. Bright ones are spells you know.
+   Grey ones are spells you have not learned yet; Nock fills those keys
+   in later when you train them. Hover any of them for details.
+
+6. Click "Apply Profile" (bottom right).
+
+7. Chat will say how many keys it bound. The keyboard card should appear
+   near the bottom of the screen with key labels like 1 Open Fire,
+   3 Aimed Shot, 4 Multi-Shot. Drag it if it sits on top of your bars.
+   Your action buttons also get a small gold keycap in the corner that
+   shows which key casts that button.
+
+That is it. Your keyboard is set up.
+
+
+What the important keys do
+--------------------------
+Shared (both specs)
+
+  (2.1 layout; the full table is in "New in 2.1" at the top.)
+  1         Open Fire — starts Auto Shot and sends your pet.
+            This is your "start shooting" button from level 1.
+  3         Aimed Shot (you learn this around level 20)
+  4         Multi-Shot (around level 18) — use this on groups
+  5         Serpent Sting (around level 4)
+  6         Melee: Counterattack, Mongoose Bite or Raptor Strike
+  Q         Concussive Shot — slows something running at you (also Mouse 5)
+  E         Feign Death — drop combat / drop threat (also wheel click)
+  R         Hunter's Mark
+  F         Freezing Trap
+  Shift-F   Frost Trap
+  Alt-F     Immolation Trap
+  Ctrl-F    Explosive Trap
+  G         Mend Pet
+  T         Pet: attack what your mouse points at (or your target)
+  Shift-T   Pet: follow       Alt-T  Pet: stay
+  Ctrl-G    Call Pet, or Revive Pet if the pet is dead
+  Ctrl-T    Feed Pet — keep the pet happy (green). Happy pets hit harder.
+  Shift-X   Aspect of the Cheetah — run faster. Turn it off before a fight.
+            You get dazed if you get hit while this is on.
+  X         Aspect of the Hawk — your damage aspect (Monkey before 10)
+  Alt-X     Aspect of the Monkey (dodge)
+  Shift-1   Rapid Fire
+  Shift-4   Volley
+  Mouse 4   Wing Clip — melee slow, then walk away (Shift-Z if the mouse is off)
+  Ctrl-E    Disengage — in Forever this dumps threat, it is not a leap
+
+Marksmanship extras
+
+  2         Arcane Shot
+  Shift-2   Trueshot Aura
+  Shift-3   Sniper Shot
+
+Beast Mastery extras
+
+  2         Summon Hawk (or Arcane Shot before you have Hawk)
+  Shift-2   Arcane Shot once you have Hawk
+  Shift-G   Bestial Wrath
+  Alt-G     Intimidation
+
+Dummy combat reminder (you still choose the buttons):
+- Press 1 to start shooting and send the pet.
+- Stand 8 to 35 yards away. Closer than 8 yards is the "dead zone."
+  Your bow sulks. Hit them with 6, slow them with Mouse 4 (Wing Clip), and walk
+  backwards until Auto Shot starts again.
+- One enemy: Aimed Shot (3) is your heavy shot once you have it.
+- Several enemies: Multi-Shot (4) instead. 3 and 4 share a cooldown,
+  so you pick one, you do not smash both.
+- Beast Mastery with hawks: Hawk, Hawk, then Arcane Shot.
+- Keep the pet fed (Ctrl-T) and healed (G). A dead pet is a sad hunter.
+
+
+The talent guide (version 1.1; since 1.4 it shows your profile's plan)
+--------------------------------------------
+Nock will not spend talent points for you. It just tells you what
+community guides recommend right now, in writing.
+
+Open it any of these ways:
+
+  - Type /nock guide
+  - Or open /nock and click "Talent guide"
+  - Type /nock next if you only want "what do I take at my level?"
+
+Inside the manual, click Beast Mastery or Marksmanship.
+
+- Beast Mastery shows the easy leveling path (33/18/0), point by
+  point, and the level-60 damage respec (31/20/0).
+- Marksmanship shows a path that finishes as the 20/31/0 damage
+  build, with Sniper Shot at 60.
+
+When you ding from level 10 onward, Nock also prints the next
+recommended talent in chat. That is a reminder, not an order.
+These builds came from public Forever guides in early November 2026.
+The meta can move. If a trusted guide you like disagrees later,
+trust newer research.
+
+Dummy version of "what is a respec?"
+At 60, Beast Mastery leveling talents are not identical to the
+dungeon/raid damage talents. You visit a class trainer, pay a bit
+of gold, wipe your points, and follow the 31/20/0 list in the manual.
+
+
+Priority glow and opener numbers (new in version 1.7)
+-----------------------------------------------------
+Two marks on your own action buttons, taken from My Rotation:
+
+  Priority glow    a soft gold glow on the buttons for your top 5
+                   single-target spells. #1 is brightest, then each one
+                   is a little dimmer.
+  Opener numbers   small blue 1, 2, 3 tags on the left edge of the
+                   buttons for your opener, in the order to press them.
+
+They are set out of combat and do NOT change during a fight. They don't
+light up when something is ready; they only show what matters most. They
+move by themselves (after the fight, if you're in one) when you move a
+spell on your bars, change keys, learn a spell, level up or change
+profile.
+
+Options on the Profiles tab: Priority glow, Opener numbers, Glow style
+(Steady or Pulse, a slow fade that is the same on every button) and
+Intensity (Low, Medium, High). Both are on by default.
+  /nock glow                 glow on or off
+  /nock glow steady | pulse  glow style
+  /nock glow low | medium | high
+  /nock numbers              opener numbers on or off
+
+Works on Blizzard's bars, and on Bartender4, Dominos and ElvUI bars when
+Nock can find their buttons.
+
+My Rotation — your own dummy guide (new in version 1.6)
+-------------------------------------------------------
+Type /nock myrotation (or click the My Rotation tab). It reads three
+things, only when you are OUT of combat: your level, the spells in your
+spellbook, and which keys and action-bar buttons those spells are on.
+Then it writes the guide for the active profile:
+
+  Opener          the buttons to press to start a fight, in order, each
+                  with its icon and the key it is on right now
+  Single target   numbered: press the highest one that's ready
+  Two or three mobs / Four or more mobs
+  Moving and kiting
+  Oh no           Feign Death, traps, Intimidation, Disengage...
+  Pet             call, mend, feed, attack, follow
+  Coming soon     the next 1-3 things you get and how they change this
+  Most damage tips
+
+If a spell you should use has no key, it says "not bound" in red with a
+Bind it button. Bind it puts the spell on the key Nock planned for it
+(out of combat only; Restore Keys can undo it). Bind Missing does all of
+them at once.
+
+It updates by itself after a level-up, a new spell, a key or bar change,
+a talent change or a profile change. If that happens in a fight, it waits
+until the fight ends. It never watches your target, health, buffs,
+cooldowns or mana. It is a printed guide, not a live helper.
+
+The rotation card: type /nock card (or click Show Card) for a small card
+with the same opener and priority. Drag it anywhere. The padlock (or
+/nock card lock) locks it in place. Its X hides it.
+
+When you level up, chat says what's new, for example:
+  New at 18 (trainer): Multi-Shot on 4 — use it on 2+ mobs instead of
+  Aimed Shot.
+Remember to visit the trainer: you only get a spell after you buy it.
+
+Profiles — one click (new in version 1.4, new window in 1.5)
+------------------------------------------------------------
+Type /nock profiles (or just /nock). Click a card:
+
+  BM Leveling   31/20/0  Sanctum's Mobalytics leveling path, no respec,
+                         no Summon Hawk (Arcane Shot is better since Nov 3)
+  BM 60         31/20/0  wow-forever.gg raid/dungeon build, with
+                         Summon Hawk, full Frenzy and Hawk Eye
+  MM Leveling   7/31/13  LudiDeo's Mobalytics 1-60 path, keeps the pet,
+                         Sniper Shot at 40
+  MM 60         5/41/5   Staedt's Lone Wolf ranged build (no pet in
+                         groups). Most published MM build
+
+The four small icons at the top right of the window switch profile on
+every tab. A green check marks the one that is active.
+
+The tabs:
+  Profiles      the cards, a keyboard preview, and options
+                (keyboard card, action-button keycaps, chat tips,
+                auto-binding newly trained spells)
+  My Rotation   YOUR guide, new in 1.6: what to press at your level with
+                the spells you know and the keys you have bound right now.
+                See "My Rotation" below.
+  Talents       the point-by-point plan as a list: a green check for
+                learned, a gold arrow for your next point, a padlock
+                for levels you have not reached. A bar shows x / 51.
+  Rotation      a written field manual for that profile and level range,
+                with gold [key] references. Read it, then you decide in
+                the fight.
+  Macros        every macro Nock makes, with its key, icon and text,
+                plus extras. Click Copy to get the text highlighted for
+                Ctrl+C.
+  Field Manual  "What do I take next?", Forever notes for each spell
+                (grey if you have not learned it yet) and the Auto Shot
+                rules.
+
+Buttons at the bottom (they change with the tab):
+
+  Apply Profile   Out of combat: sets your keys, puts shots on bar 1
+                  and creates the Nock macros below. It never spends
+                  talent points.
+  Restore Keys    Puts back your keys from before the first apply
+                  (asks first).
+  Learn Next      Talents tab: spends ONE point on the next talent.
+  Learn All       Talents tab: spends every point you have, in plan
+                  order (asks first). Handy right after a respec at 60.
+  Open Talents    Opens Blizzard's talent window.
+
+In combat these buttons turn grey and the bottom of the window says why.
+They come back when combat ends. Esc closes the window, and it remembers
+where you dragged it.
+
+What Apply changes with a profile (Benjamin's layout):
+  1  Open Fire macro: pet attack + Auto Shot (never toggles off)
+  2  Arcane Shot macro (BM with Summon Hawk: Hawk on 2, Arcane on Shift-2)
+  3  Aimed Shot macro   4  Multi-Shot macro   5  Serpent Sting macro
+     (each one also makes sure Auto Shot keeps running)
+  6  Counterattack / Mongoose Bite / Raptor Strike melee macro
+  Q  Concussive Shot (plain spell)
+  E  Feign Death macro: stop cast, stop attack, pet follow, Feign
+  R  Leveling profiles: Hunter's Mark + send pet.  60 profiles: plain Mark
+  F  Freezing Trap   Shift-F Frost   Alt-F Immolation   Ctrl-F Explosive
+  T  pet attacks your mouseover (or target)   Shift-T follow   Alt-T stay
+  Ctrl-G  Call Pet / Revive Pet
+  Shift-1  Rapid Fire + both trinkets
+  Shift-G  BM: pet attack + Bestial Wrath   Shift-3  MM: Sniper Shot
+  Alt-G    BM: pet attack + Intimidation
+  Mouse    Mouse 4 Wing Clip, Mouse 5 Concussive, wheel click Feign Death
+           (only on empty buttons; /nock mouse off turns them off)
+
+Each macro casts at most one spell on the global cooldown per press.
+Nock needs up to 16 character macro slots. If you are full, it tells
+you and changes nothing.
+
+Chat commands:
+  /nock profiles                       open the Profiles tab
+  /nock profile bmlvl|bm60|mmlvl|mm60  apply one right now
+  /nock learn                          learn the next talent in the plan
+  /nock learnall                       learn every point you can
+
+At 60, switching from a leveling profile to a 60 profile means paying a
+trainer for a respec first, then clicking Learn All on the Talents tab.
+
+
+Where else to find Nock
+-----------------------
+Click the addon button next to the minimap (the addon compartment) and
+pick Nock. Left-click opens the window, right-click turns the keyboard
+card on or off. If your client has no addon compartment, Nock puts its
+own round button on the minimap instead.
+
+
+Chat commands, all of them
+--------------------------
+  /nock              Open the window
+  /nock bm           Apply the Beast Mastery layout right now
+  /nock marks        Apply the Marksmanship layout right now
+  /nock restore      Put your old keys back
+  /nock overlay      Show or hide the keyboard card
+  /nock myrotation   Open My Rotation (what to press, with your keys)
+  /nock card         Show or hide the My Rotation card (/nock card lock)
+  /nock glow         Priority glow on or off (also steady, pulse, low, medium, high)
+  /nock numbers      Opener numbers on your buttons on or off
+  /nock badges       Keycaps on your action buttons on or off
+  /nock talents      Open the Talents tab (also: rotation, macros)
+  /nock guide        Open the Field Manual tab
+  /nock resetui      Move the window back to the middle of the screen
+  /nock next         Print the next talent for your level
+  /nock keys         List the 2.1 keys (and mouse buttons)
+  /nock migrate      Open the 2.1 "move my keys" window (migrate nomouse: keyboard only)
+  /nock mouse        Mouse buttons on or off (also: mouse on, mouse off)
+  /nock help         List these commands
+
+
+If something looks wrong
+------------------------
+"It did nothing."
+  Are you on a Hunter? Are you out of combat? Did you click Apply
+  Profile? Type /nock again and look at chat for an error.
+
+"It overwrote keys I liked."
+  Click Restore Keys on the Profiles tab, or type /nock restore. That only remembers
+  what the keys were before your first Apply. After that, it cannot
+  time-travel further back, so be a little thoughtful before you
+  Apply on a character with a custom keyboard you love.
+
+"My mage's keys changed too."
+  Turn on Character Specific Key Bindings, then set the mage back
+  up (or restore on the hunter after enabling that option and
+  re-applying only on the hunter).
+
+"A spell is grey / missing."
+  You have not trained it yet. Visit a hunter trainer. When you
+  learn it, Nock should fill the empty reserved key and explain
+  the spell in chat.
+
+"The keyboard card is in the way."
+  Drag it, click its small X, or type /nock overlay to hide it.
+  (Out of combat only. In a fight it hides as soon as the fight ends.)
+
+"My friend and I want the same buttons."
+  Give them this same Nock folder. They install it the same way
+  and click the same spec. That is the whole point — you can talk
+  about keys in the same language ("stun is Shift-E").
+
+Nock is free. Do not charge anyone for it. The code is readable on
+purpose, which Blizzard requires.
+
+
+What Nock will never do
+-----------------------
+It will not bot, it will not click for you, and it will not run a
+live "best shot right now" helper. If you want a reminder of how
+a spell works, use Field notes or wait until you train it. If you
+want talent advice, use the Field Manual. The rest is you, a bow,
+and (usually) a slightly judgmental pet.
