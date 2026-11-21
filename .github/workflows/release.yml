@@ -1,0 +1,57 @@
+# Package Nock and publish a GitHub Release (and CurseForge, when configured)
+# whenever a version tag is pushed.
+#
+#   git tag -a v3.5.0 -m "Nock 3.5.0"
+#   git push origin v3.5.0
+#
+# Requires:
+#   - this workflow committed to the default branch BEFORE the tag is pushed
+#     (a brand-new workflow file pushed in the same event as the tag may not run)
+#   - permissions.contents: write, so the packager can create/update the release
+#   - Nock/Nock.toc and Nock/Nock_Forever.toc contain:
+#       ## X-Curse-Project-ID: <numeric id>
+#   - repo secret CF_API_KEY = a CurseForge author API token
+#
+# Confirmed against BigWigsMods/packager release.sh (current master, Nov 2026):
+# upload_curseforge() returns 0 without uploading when skip_cf_upload is set,
+# OR slug (project id) is empty, OR cf_token (CF_API_TOKEN or CF_API_KEY) is
+# empty, OR project_site is unset. project_site is only set when the TOC id
+# is all digits, so a placeholder such as PROJECT_ID also skips CurseForge.
+# The GitHub release is still created in those cases.
+#
+# If CurseForge is attempted and the versions API call fails, packager aborts
+# the remaining uploads (including GitHub). A missing key or id does not do that.
+#
+# Game version: Nock.toc has "## Interface: 16001". Current BigWigsMods/packager
+# maps 16??? to game type "forever" and formats it as 1.60.1, then looks up that
+# name under CurseForge gameVersionTypeID 88568 (Forever). No -g flag is set, so
+# the TOC stays the source of truth. Do not pass -g classic / 1.15.x.
+#
+# Do not also run `gh release create` for the same tag (see RELEASING.md).
+# If a release for the tag already exists, packager updates it and attaches
+# its zip (and release.json), which can leave two zips on the release.
+
+name: Package and release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Package and release
+        uses: BigWigsMods/packager@v2
+        env:
+          CF_API_KEY: ${{ secrets.CF_API_KEY }}
+          GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}

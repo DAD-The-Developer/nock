@@ -4,11 +4,15 @@ Nock is a no-click, keybind-first Hunter HUD addon for [World of Warcraft: Forev
 
 Two looks are included: **Emerald** (the default bow) and **Gunsmith** (a dwarven rifle). Layout and size stay the same when you swap.
 
-This repository has no license yet. All rights are reserved until one is added. If you want to use or share the code or art beyond installing the addon for yourself, wait for a license or ask first.
+Nock is licensed under the GNU General Public License, version 3. Copyright (C) 2026 Benjamin Vilina (DAD-The-Developer). See [LICENSE](LICENSE).
+
+It is also listed on CurseForge as [Nock Hunter HUD](https://www.curseforge.com/wow/addons/nock-hunter-hud) (the short name "Nock" was already taken).
 
 ## Install (WoW Forever)
 
-The addon lives in the `Nock/` folder at the root of this repo. That folder is what you copy into AddOns.
+The easiest way is the CurseForge app: set the game flavor to **Forever** and install [Nock Hunter HUD](https://www.curseforge.com/wow/addons/nock-hunter-hud). The app should place it in `World of Warcraft\_forever_\Interface\AddOns\Nock`.
+
+For a manual install, the addon lives in the `Nock/` folder at the root of this repo. That folder is what you copy into AddOns.
 
 1. Close World of Warcraft: Forever if it is open.
 2. Copy the `Nock` folder into:
@@ -130,7 +134,8 @@ gun-assets/      Original Gunsmith source paintings.
 tests/           Lua 5.1 harness (style, threat, and a fresh empty-DB load).
 tools/           pack_release.py builds the shareable zip.
 CHANGELOG.md     Changes from 3.0.11 through the current release.
-RELEASING.md     How to version, tag, and publish a GitHub Release.
+LICENSE          GNU General Public License, version 3.
+RELEASING.md     How to version, tag, and publish a GitHub and CurseForge release.
 ```
 
 ## Tests
@@ -143,6 +148,7 @@ python3 tests/run_threat.py
 python3 tests/run_fresh_load.py
 python3 tests/run_pins.py
 python3 tests/run_tools.py
+python3 tests/run_window.py
 ```
 
 ## Build a release zip
@@ -153,8 +159,8 @@ python3 tools/pack_release.py
 
 That writes `share/Nock-<version>.zip` with one top-level `Nock` folder, ready to extract into `_forever_\Interface\AddOns`. It does not include tests, art masters, or SavedVariables.
 
-Released zips are also attached to [GitHub Releases](https://github.com/DAD-The-Developer/nock/releases).
+Released zips are also attached to [GitHub Releases](https://github.com/DAD-The-Developer/nock/releases) and, once a tagged release is published, to [Nock Hunter HUD on CurseForge](https://www.curseforge.com/wow/addons/nock-hunter-hud).
 
 ## License
 
-No license is set yet. All rights reserved until one is added.
+Nock is licensed under the [GNU General Public License, version 3](https://www.gnu.org/licenses/gpl-3.0.html). Copyright (C) 2026 Benjamin Vilina (DAD-The-Developer). See [LICENSE](LICENSE).

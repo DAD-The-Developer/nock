@@ -7,8 +7,8 @@ This directory (`/workspace/nock` on the shared box) **is** the git working copy
 Before any Nock change:
 
 1. `git pull --rebase origin main`
-2. Make the change, bump the version, run tests, and `python3 tools/pack_release.py`
-3. Commit with a clear message, push `main`, tag `vX.Y.Z`, and create a GitHub Release with `share/Nock-X.Y.Z.zip`
+2. Make the change, bump the version, run tests, and optionally `python3 tools/pack_release.py` for a local zip check
+3. Commit with a clear message, push `main`, and tag `vX.Y.Z`. Pushing the tag publishes the GitHub Release and CurseForge file via `.github/workflows/release.yml`. Do not also run `gh release create`.
 
 Details are in `RELEASING.md` and `CONTRIBUTING.md`.
 

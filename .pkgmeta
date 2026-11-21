@@ -1,0 +1,52 @@
+# BigWigs packager config for Nock.
+# YAML: spaces only, no tabs.
+#
+# The git repo has the addon in a Nock/ subdirectory (Nock/Nock.toc), plus
+# art masters, tests, and tools at the repo root. package-as copies the
+# checkout into .release/Nock/. move-folders then hoists Nock/Nock/* up into
+# that package directory so the zip is:
+#
+#   Nock-...zip
+#     Nock/Nock.toc
+#     Nock/Nock.lua
+#     Nock/LICENSE
+#     ...
+#
+# which matches tools/pack_release.py and what WoW expects in Interface/AddOns.
+# Do not remove move-folders or the zip will nest as Nock/Nock/Nock.toc.
+
+package-as: Nock
+
+manual-changelog:
+  filename: CHANGELOG.md
+  markup-type: markdown
+
+move-folders:
+  Nock/Nock: Nock
+
+ignore:
+  - art
+  - tests
+  - tools
+  - design2
+  - gun-assets
+  - keymap
+  - share
+  - AGENTS.md
+  - CONTRIBUTING.md
+  - RELEASING.md
+  - KEYMAP-2.1.md
+  - PLAN-2.0.md
+  - PLAN-3.0.md
+  - README.md
+  - curseforge-description.md
+  - BEN-STEPS.md
+  - APPLY.md
+  - curseforge-logo-400.png
+  - "Nock.bak-*"
+  - "*.py"
+  - "*.png"
+  - "*.jpg"
+  - "*.jpeg"
+  - "*.ps1"
+  - "*.zip"
