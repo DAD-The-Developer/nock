@@ -53,7 +53,7 @@ function IsModifierKeyDown() return false end
 function GetScreenWidth() return 1920 end
 function GetScreenHeight() return 1080 end
 function GetAddOnMetadata(a, k)
-  if k == "Version" then return "3.3.1" end
+  if k == "Version" then return "3.4.0" end
   if k == "Title" then return "Nock" end
 end
 C_Timer = { After = function(_, fn) end }
@@ -150,6 +150,8 @@ local function patch(f)
   function f:RegisterForClicks() end
   function f:SetToplevel() end
   function f:EnableKeyboard() end
+  function f:SetAttribute(k, v) self._attr = self._attr or {}; self._attr[k] = v end
+  function f:GetAttribute(k) return self._attr and self._attr[k] end
   function f:SetScript(name, fn)
     self._scripts = self._scripts or {}
     self._scripts[name] = fn

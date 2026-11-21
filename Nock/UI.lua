@@ -826,10 +826,11 @@ local TAB_INFO = {
   { key = "macros", label = "Macros", tip = "Every macro Nock creates, plus extras you can paste yourself." },
   { key = "manual", label = "Field Manual", tip = "Forever hunter facts, spell by spell, and the Auto Shot rules." },
   { key = "advanced", label = "Guide", tip = "Profiles, the written rotation, macros and the Field Manual." },
+  { key = "kit", label = "Tools", tip = "Hunter tools: your pet, supplies, where to level, what to train, rare beasts, Wing Clip and your session." },
   { key = "options", label = "Options", tip = "Key bar, glow, crosshair, opener tokens, fade, Hunting Notes and setup." },
 }
 -- Simple view (the default since 1.8): only My Rotation, Talents and More.
-local SIMPLE_TABS = { myrot = true, talents = true, advanced = true, options = true }
+local SIMPLE_TABS = { myrot = true, talents = true, advanced = true, kit = true, options = true }
 local function IsSimple()
   return NockCharDB.view ~= "advanced"
 end
@@ -838,7 +839,7 @@ local TAB_INDEX = {}
 for i, t in ipairs(TAB_INFO) do
   TAB_INDEX[t.key] = i
 end
-local TAB_ALIAS = { keys = "profiles", guide = "manual", notes = "manual", plan = "talents", myrotation = "myrot", mine = "myrot", more = "advanced", options = "options", settings = "options" }
+local TAB_ALIAS = { keys = "profiles", guide = "manual", notes = "manual", plan = "talents", myrotation = "myrot", mine = "myrot", more = "advanced", options = "options", settings = "options", tools = "kit", fieldkit = "kit" }
 
 local frame
 
@@ -1213,6 +1214,10 @@ local function HeaderFor(tab, p)
     return "My Rotation", p.label .. "  ·  level " .. level .. "  ·  built from your spellbook, keys and bars"
   elseif tab == "macros" then
     return "Macros", p.label .. "  ·  one global-cooldown spell per press"
+  elseif tab == "kit" then
+    local C = Nock.Core and Nock.Core.P
+    local mode = (Nock.Core and Nock.Core.IsEndgame()) and "endgame" or "leveling"
+    return "Hunter Tools", string.format("Field Kit  ·  level %d  ·  %s  ·  %s", level, C and C.spec or "hunter", mode)
   end
   return "Field Manual", (SPEC_NAME[p.spec] or "Hunter") .. "  ·  Forever 1.60.1 hunter notes"
 end
@@ -1295,6 +1300,10 @@ function UI.LayoutTabs()
       show = SIMPLE_TABS[info.key] and true or false
     else
       show = info.key ~= "advanced"
+      -- Eight tabs do not fit the small window; Tools stays reachable by /nock kit.
+      if info.key == "kit" and frame.GetWidth and (frame:GetWidth() or 0) < 830 then
+        show = false
+      end
     end
     tab:SetShown(show)
     if show then

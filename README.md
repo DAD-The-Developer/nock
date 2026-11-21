@@ -43,6 +43,27 @@ Hunter trainers, pet trainers, stable masters and ammo vendors show on the minim
 
 A movable quiver counter (an ammo pouch in Gunsmith) shows your ammo in big numbers: green when stocked, yellow at half, red when low. Shift-drag to move; `/nock quiver`, `/nock quiver unlock | lock | reset`.
 
+## Hunter tools (3.4.0)
+
+Eleven small tools on one core (`Nock/Core.lua`): each is on by default, with its own switch in Options > Hunter tools, a `/nock` word, and a section on the **Tools** tab (`/nock kit`). They all read one profile layer: level, spellbook ranks, spec from talents, and context (solo, group, dungeon, raid, battleground, arena). At 60 they switch to endgame mode; in battlegrounds and arenas to PvP mode.
+
+| Command | Tool |
+| --- | --- |
+| `/nock pet` | Pet happiness warnings; "Feed pet" keybind feeds the best food |
+| `/nock supplies` | Ammo, pet food, food and water warnings in town and when you leave |
+| `/nock vendor` | Auto sell junk and repair (own gold) |
+| `/nock range` | Melee / dead zone / too far readout, Wing Clip prompt, timer and fall-off alert |
+| `/nock tame` | Rare tameable beast pins, your pet's missing ability ranks |
+| `/nock aspects` | Hawk in combat, no Cheetah/Pack in a fight, Cheetah when travelling |
+| `/nock feign` | Feign Death resisted alert |
+| `/nock route` | Leveling route and hunter milestones; endgame checklist at 60; `/nock route pvp` |
+| `/nock train` | New trainer ranks on level up and the nearest trainer |
+| `/nock tracker` | Kills to level, XP/hour; gold/hour at 60 |
+| `/nock pvp` | Enemy player readout, trinket alerts, PvP field notes |
+| `/nock tools` | List, `mute`, `endgame auto/on/off`, `pvp on/off` |
+
+Data lives in `Data_Spells.lua` (Forever trainer list, from wowforever.one, CC BY 4.0), `Data_Pets.lua` (families, diets and ranks from warcraftmaps.com; rare beasts and teachers are Classic data; spawn points from QuestieDB), `Data_Food.lua`, `Data_Route.lua` and `Data_PvP.lua`. Add rows to grow them.
+
 ## Switching styles
 
 Nock starts with the Emerald bow. To use the Gunsmith rifle look, open Nock, go to Options, and choose Style: Gunsmith. You can also type:
@@ -96,6 +117,8 @@ From the repo root, with Python 3 and [lupa](https://pypi.org/project/lupa/) (Lu
 python3 tests/run_style.py
 python3 tests/run_threat.py
 python3 tests/run_fresh_load.py
+python3 tests/run_pins.py
+python3 tests/run_tools.py
 ```
 
 ## Build a release zip

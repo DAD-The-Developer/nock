@@ -40,6 +40,7 @@ local KIND_BY_ID = {}
 for i, k in ipairs(Pins.KINDS) do
   KIND_BY_ID[k.id] = i
 end
+local extraRows = {} -- pins added by other Nock tools (3.4.0: rare tameable beasts)
 
 local MINI_SIZE = 18
 local MINI_EDGE_SIZE = 14
@@ -106,6 +107,35 @@ local function Build()
       name = row[6], title = row[7], goods = row[8] or "",
     }
   end
+  for _, e in ipairs(extraRows) do
+    entries[#entries + 1] = e
+  end
+end
+
+--[[ 3.4.0: other tools add their own pin kinds.
+  def = { id, label, role, tex, color, filter = function(e) return show end,
+          tip = function(e) return { "line", ... } end }
+  Returns the kind number to use in Pins.AddEntries rows. ]]
+function Pins.AddKind(def)
+  if KIND_BY_ID[def.id] then
+    return KIND_BY_ID[def.id]
+  end
+  Pins.KINDS[#Pins.KINDS + 1] = def
+  KIND_BY_ID[def.id] = #Pins.KINDS
+  return #Pins.KINDS
+end
+
+-- rows: { kind = n, fac = "AH", map = uiMapID, x = 0-1, y = 0-1, name = "...", title = "...", data = any }
+function Pins.AddEntries(rows)
+  for _, e in ipairs(rows) do
+    e.goods = e.goods or ""
+    e.fac = e.fac or "AH"
+    extraRows[#extraRows + 1] = e
+    if entries then
+      entries[#entries + 1] = e
+    end
+  end
+  worldDone = false
 end
 
 -- World (yard) positions are only available once the map system is up.
@@ -115,10 +145,13 @@ local function ResolveWorld()
   end
   Build()
   for _, e in ipairs(entries) do
-    local ok, inst, pos = pcall(C_Map.GetWorldPosFromMapPos, e.map, CreateVector2D(e.x, e.y))
-    if ok and inst and pos then
-      e.wx, e.wy = pos:GetXY() -- wx grows to the north, wy grows to the west
-      e.inst = inst
+    if not e.tried then
+      e.tried = true
+      local ok, inst, pos = pcall(C_Map.GetWorldPosFromMapPos, e.map, CreateVector2D(e.x, e.y))
+      if ok and inst and pos then
+        e.wx, e.wy = pos:GetXY() -- wx grows to the north, wy grows to the west
+        e.inst = inst
+      end
     end
   end
   worldDone = true
@@ -140,9 +173,15 @@ local function Filter()
   local mine = PlayerFactionLetter()
   local hostile = Pins.HostileOn()
   for _, e in ipairs(entries) do
-    local kindId = Pins.KINDS[e.kind] and Pins.KINDS[e.kind].id
+    local kdef = Pins.KINDS[e.kind]
+    local kindId = kdef and kdef.id
     local friendly = (not mine) or e.fac:find(mine, 1, true)
-    if kindId and Pins.KindOn(kindId) and (friendly or hostile) then
+    local wanted = true
+    if kdef and kdef.filter then
+      local ok, v = pcall(kdef.filter, e)
+      wanted = ok and v and true or false
+    end
+    if kindId and wanted and Pins.KindOn(kindId) and (friendly or hostile) then
       e.hostile = not friendly
       visible[#visible + 1] = e
       local list = byMap[e.map]
@@ -194,6 +233,14 @@ local function ShowTip(frame)
   local goods = e.kind == 4 and GoodsText(e.goods)
   if goods then
     GameTooltip:AddLine(goods, 0.9, 0.9, 0.9, true)
+  end
+  if kind.tip then
+    local ok, lines = pcall(kind.tip, e)
+    if ok and type(lines) == "table" then
+      for _, line in ipairs(lines) do
+        GameTooltip:AddLine(line, 0.9, 0.9, 0.9, true)
+      end
+    end
   end
   GameTooltip:AddLine(string.format("%s  %.0f, %.0f", ZoneName(e.map), e.x * 100, e.y * 100), 0.95, 0.88, 0.55)
   if frame.dist then
@@ -556,6 +603,36 @@ function Pins.Toggle()
 end
 _G.Nock_TogglePins = Pins.Toggle
 
+-- Nearest friendly pin of a kind (number), whether or not that kind is shown.
+-- Returns entry, yards; nil when unknown (instances, no position).
+function Pins.Nearest(kind)
+  ResolveWorld()
+  Build()
+  local px, py, inst = PlayerWorld()
+  if not px then
+    return nil
+  end
+  local mine = PlayerFactionLetter()
+  local best, bestD2
+  for _, e in ipairs(entries) do
+    if e.kind == kind and e.inst == inst and e.wx and ((not mine) or e.fac:find(mine, 1, true)) then
+      local dx, dy = py - e.wy, e.wx - px
+      local d2 = dx * dx + dy * dy
+      if not bestD2 or d2 < bestD2 then
+        best, bestD2 = e, d2
+      end
+    end
+  end
+  if not best then
+    return nil
+  end
+  return best, math.sqrt(bestD2)
+end
+
+function Pins.ZoneName(map)
+  return ZoneName(map)
+end
+
 function Pins.Counts()
   Build()
   local out = {}
@@ -570,6 +647,7 @@ local ALIAS = {
   trainer = "trainer", trainers = "trainer", hunter = "trainer",
   pet = "pet", pets = "pet", pettrainer = "pet",
   stable = "stable", stables = "stable", stablemaster = "stable",
+  tame = "tame", rares = "tame", rare = "tame", beasts = "tame",
   ammo = "ammo", arrows = "ammo", arrow = "ammo", bullets = "ammo", vendor = "ammo", vendors = "ammo",
 }
 
@@ -598,6 +676,9 @@ function Pins.Slash(rest)
   if id then
     Pins.SetKind(id, not Pins.KindOn(id))
     local k = Pins.KINDS[KIND_BY_ID[id]]
+    if not k then
+      return Say("That pin kind is not loaded.")
+    end
     return Say(k.label .. " " .. (Pins.KindOn(id) and "shown." or "hidden."))
   end
   Say("/nock pins — all on or off.  /nock pins trainer | pet | stable | ammo — one kind.  /nock pins minimap | map | hostile")

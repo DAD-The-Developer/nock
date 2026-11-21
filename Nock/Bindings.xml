@@ -17,4 +17,24 @@
   <Binding name="NOCK_QUIVER">
     Nock_ToggleQuiver()
   </Binding>
+  <Binding name="CLICK NockFeedButton:LeftButton">
+  </Binding>
+  <Binding name="NOCK_KIT">
+    Nock_OpenKit()
+  </Binding>
+  <Binding name="NOCK_SUPPLIES">
+    Nock_SupplyCheck()
+  </Binding>
+  <Binding name="NOCK_TRAIN">
+    Nock_TrainCheck()
+  </Binding>
+  <Binding name="NOCK_TAME_PINS">
+    Nock_ToggleTamePins()
+  </Binding>
+  <Binding name="NOCK_TRACKER">
+    Nock_ToggleTracker()
+  </Binding>
+  <Binding name="NOCK_MUTE_TOOLS">
+    Nock_MuteTools()
+  </Binding>
 </Bindings>

@@ -408,6 +408,12 @@ local function Soon()
   end
 end
 
+-- 3.4.0: the supply checks read the last scan (count, full, id, name, hasBag).
+function Q.State()
+  pcall(Scan)
+  return state
+end
+
 function Q.SetOn(on)
   DB().quiver = on and true or false
   Q.Update()

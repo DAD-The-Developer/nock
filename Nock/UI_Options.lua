@@ -246,6 +246,33 @@ local function Build(page)
   add("Quiver counter", "A quiver (or ammo pouch in Gunsmith) with your ammo count in big numbers. Green is well stocked, yellow is half, red means buy more. Hold Shift and drag to move it. Also /nock quiver.",
     function() return Nock.Quiver and Nock.Quiver.IsOn() end, function(on) if Nock.Quiver then Nock.Quiver.SetOn(on) end end)
 
+  -- 3.4.0 hunter tools: one switch per tool, then its own settings.
+  local Core = Nock.Core
+  if Core and Core.order and #Core.order > 0 then
+    child._y = child._y - 8
+    Section(child, "Hunter tools", 8, child._y, cw - 16)
+    child._y = child._y - 40
+    add("Mute hunter tool alerts", "Silences the big centre alerts and edge flashes from every hunter tool. The readouts stay. Also /nock tools mute or the keybind.",
+      function() return Core.Muted() end, function(on) if Core.Muted() ~= (on and true or false) then Core.Slash("mute") end end)
+    add("Endgame mode at level 60", "At 60 the guide and tracker switch to raid-night checklists and gold per hour, and leveling-only nudges step aside. Off keeps leveling mode. /nock tools endgame auto | on | off.",
+      function() return Core.EndgameSetting() ~= "off" end,
+      function(on) _G.NockCharDB = _G.NockCharDB or {}; _G.NockCharDB.endgame = on and "auto" or "off"; Core.ProfileChanged("level") end)
+    add("PvP mode in battlegrounds and arenas", "In a battleground or arena: pet feeding, route, trainer and tracker nags go quiet, dead zone and Wing Clip cues get louder, and the PvP readout shows enemy class, sting, slows, big buffs and your CC cooldowns. /nock tools pvp on | off.",
+      function() return Core.PvPSetting() end,
+      function(on) if Core.PvPSetting() ~= (on and true or false) then Core.Slash("pvp") end end)
+    for _, id in ipairs(Core.order) do
+      local m = Core.modules[id]
+      add(m.name, (m.desc or "") .. "  /nock " .. (m.cmd and m.cmd[1] or id),
+        function() return Core.Get(id, "on") ~= false end, function(on) Core.Set(id, "on", on and true or false) end)
+      for _, o in ipairs(m.options or {}) do
+        local key = o.key
+        add("   " .. o.label, o.tip or o.label,
+          function() local v = Core.Get(id, key); return v == true or (v ~= false and v ~= nil) end,
+          function(on) Core.Set(id, key, on and true or false) end)
+      end
+    end
+  end
+
   child._y = child._y - 8
   Section(child, "Extras", 8, child._y, cw - 16)
   child._y = child._y - 40

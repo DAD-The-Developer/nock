@@ -22,6 +22,20 @@ If the game says it is out of date, enable "Load out of date AddOns"
 once, then tell me the interface number from /dump select(4, GetBuildInfo()).
 
 
+New in 3.4.0
+Hunter tools, all on by default, each with its own switch in Options >
+Hunter tools and a page section on the new Tools tab (/nock kit):
+pet happiness and a Feed pet key, supply warnings when you leave town,
+auto sell junk and repair, a dead zone / Wing Clip readout (Wing Clip,
+then step back; timer; fall-off alert; Wing Clip key glows), rare beast
+pins and your pet's missing ranks, aspect reminders, a Feign Death
+resisted alert, a leveling route and field notes, a trainer reminder,
+a kill / XP tracker, and PvP mode in battlegrounds and arenas (enemy
+class, sting, slows, big buffs, your CC cooldowns, trinket alerts).
+/nock tools lists them. At 60 they switch to endgame mode.
+New keys in Key Bindings > AddOns > Nock (none bound for you).
+Restart the game fully once so the new pin icon loads.
+
 New in 3.3.1
 New Emerald quiver counter art: a painted elven quiver, larger, sitting
 over the coloured ring, with the ammo count in the arch between its

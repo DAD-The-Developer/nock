@@ -626,6 +626,13 @@ BINDING_NAME_NOCK_STYLE = "Switch HUD style (Emerald / Gunsmith)"
 BINDING_NAME_NOCK_THREAT_UNLOCK = "Unlock or lock the threat meter"
 BINDING_NAME_NOCK_PINS = "Show or hide hunter map pins"
 BINDING_NAME_NOCK_QUIVER = "Show or hide the quiver counter"
+_G["BINDING_NAME_CLICK NockFeedButton:LeftButton"] = "Feed pet (best food in your bags)"
+BINDING_NAME_NOCK_KIT = "Open Hunter Tools (Field Kit)"
+BINDING_NAME_NOCK_SUPPLIES = "Check ammo, pet food, food and water"
+BINDING_NAME_NOCK_TRAIN = "What is waiting at the trainer"
+BINDING_NAME_NOCK_TAME_PINS = "Show or hide rare tameable beast pins"
+BINDING_NAME_NOCK_TRACKER = "Show or hide the kill / XP tracker"
+BINDING_NAME_NOCK_MUTE_TOOLS = "Mute or unmute hunter tool alerts"
 
 function _G.Nock_ToggleNotes()
   local Nock = _G.Nock

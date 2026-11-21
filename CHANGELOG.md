@@ -2,6 +2,26 @@
 
 All notable changes to Nock from 3.0.11 onward. The addon folder's `Nock/README.txt` also has older notes.
 
+## 3.4.0
+
+Hunter tools: eleven small tools that share one core (module registry, one event frame, throttled ticker, per-tool settings in `NockCharDB.mods`). Each is on by default, has its own switch and settings in Options > Hunter tools, a `/nock` word, and a section on the new **Tools** tab (`/nock kit`). `/nock tools` lists them; `/nock tools mute` silences their alerts.
+
+A shared profile layer every tool reads: your level, every spell and rank in your spellbook (rescanned when you learn something), your spec from talent points (Beast Mastery, Marksmanship, Survival or hybrid) and where you are (solo, party, raid, dungeon, raid instance, battleground or arena). At level 60 the tools switch to endgame mode (`/nock tools endgame auto | on | off`).
+
+- **Pet happiness and feeding** (`/nock pet`): big warning when your pet turns content or unhappy (louder for Beast Mastery). New keybind "Feed pet (best food in your bags)" feeds the best food your pet's diet allows, saving higher-level food. Warns when you carry nothing it eats, or only food too low level to help.
+- **Supply warnings** (`/nock supplies`): ammo, pet food, food and water against targets you can set. Reminds you in town and near ammo vendors; big warning the moment you leave town short. Raid-night targets at 60 (`/nock supplies raid` for the checklist).
+- **Sell junk and repair** (`/nock vendor`): sells greys and repairs from your own gold (never the guild bank) at any vendor, with a one-line chat summary. Hold Shift to skip once.
+- **Dead zone, range and Wing Clip** (`/nock range`): readout under your character for MELEE, DEAD ZONE and TOO FAR. In melee it says "WING CLIP, then step back" when the target is not slowed, then "STEP BACK" with the Wing Clip time left; alerts when Wing Clip falls off something still in melee; the Wing Clip key on Nock's bar (Mouse 4) glows while it is wanted. Edge flash in the dead zone. Survival builds see the Improved Wing Clip note.
+- **Taming helper** (`/nock tame`): 63 rare tameable beasts as paw pins on the maps (your level band, or all), with family, level, abilities and attack speed; your pet's missing ability ranks and which beasts teach them.
+- **Aspect reminder** (`/nock aspects`): fighting without Hawk (Monkey before Hawk), a loud warning when Cheetah or Pack is on in a fight, and a quiet Cheetah nudge when you travel on foot outdoors.
+- **Feign Death resisted alert** (`/nock feign`): big red alert, raid warning sound and edge flash.
+- **Hunter route and field notes** (`/nock route`): where to level now and next for your faction (Forever zones incl. Zephras Isle, Riverglades, Mount Hyjal), dungeons in range, hunter milestones. At 60: the raid-night checklist and what is open in Forever.
+- **Trainer reminder** (`/nock train`): on level up, the hunter and pet trainer ranks waiting for you (from the 136-rank Forever trainer list, checked against your spellbook) and the nearest hunter trainer.
+- **Kill and XP tracker** (`/nock tracker`): kills to level, XP per hour and time to level; gold per hour and kills at 60. Shift-drag to move.
+- **PvP** (`/nock pvp`): in battlegrounds and arenas (if the client has them) PvP mode quiets the PvE nags (pet feeding, route, trainer, tracker), makes dead-zone and Wing Clip cues louder, and shows an enemy-player readout: class, role and the sting to use (Viper vs casters, Scorpid vs melee, only if known), whether the target is slowed, big enemy buffs (Ice Block, Divine Shield, Freedom ...), and your Concussive / Scatter / trap / Feign cooldowns. Alerts on enemy PvP trinkets and low ammo when the queue pops. `/nock pvp guide` and the route in PvP show the PvP field notes (kiting, dead zone, trap juggling, Wing Clip + step back, class matchups). `/nock tools pvp off` turns PvP mode off.
+
+New keybinds (Key Bindings > AddOns > Nock, all unbound): Feed pet, Open Hunter Tools, Check supplies, What is waiting at the trainer, Rare beast pins, Kill / XP tracker, Mute hunter tool alerts. Content lives in data files (`Data_Spells`, `Data_Pets`, `Data_Food`, `Data_Route`, `Data_PvP`) so it can grow without new code. New pin icon: restart the game fully once.
+
 ## 3.3.1
 
 New Emerald quiver counter art: Ben's painted elven quiver (green and white fletching, gold filigree, emerald gems) replaces the code-drawn one. It is larger (84 px before bar-size scaling), drawn over the green / yellow / red ring so the ring never covers it, and the ammo count sits low in the arch between the quiver's legs with a heavy black outline and drop shadow. Gunsmith keeps the ammo pouch. The new texture needs a full game restart the first time.
