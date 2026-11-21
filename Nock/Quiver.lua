@@ -25,6 +25,11 @@ Nock.Quiver = Q
 
 local TEX = "Interface\\AddOns\\Nock\\Media\\Textures\\pins\\"
 local BASE = 58
+local EMERALD_SIZE = 84
+-- The count sits low in the arch between the quiver's legs (256 px art,
+-- gap centred near x 121). Tuned against the 3.3.1 preview.
+local COUNT_X = -2
+local COUNT_Y = -35
 local DEFAULT_FULL = 1000
 local GREEN = { 0.25, 0.90, 0.35 }
 local YELLOW = { 1.00, 0.82, 0.15 }
@@ -227,26 +232,21 @@ local function Create()
   f:RegisterForDrag("LeftButton")
 
   f.glow = f:CreateTexture(nil, "BACKGROUND")
-  f.glow:SetPoint("TOPLEFT", -12, 12)
-  f.glow:SetPoint("BOTTOMRIGHT", 12, -12)
   f.glow:SetTexture(TEX .. "q_glow")
   f.glow:SetBlendMode("ADD")
 
-  f.disc = f:CreateTexture(nil, "BORDER")
-  f.disc:SetAllPoints()
+  f.disc = f:CreateTexture(nil, "BORDER", nil, 0)
   f.disc:SetTexture(TEX .. "q_disc")
 
   f.art = f:CreateTexture(nil, "ARTWORK")
-  f.art:SetPoint("TOPLEFT", 5, -3)
-  f.art:SetPoint("BOTTOMRIGHT", -5, 7)
 
-  f.ring = f:CreateTexture(nil, "OVERLAY")
-  f.ring:SetAllPoints()
+  -- The ring sits behind the art so the painted quiver is never covered.
+  f.ring = f:CreateTexture(nil, "BORDER", nil, 1)
   f.ring:SetTexture(TEX .. "q_ring")
 
   f.count = f:CreateFontString(nil, "OVERLAY")
-  f.count:SetPoint("TOP", f, "BOTTOM", 0, 4)
-  Font(f.count, 22)
+  f.count:SetShadowColor(0, 0, 0, 1)
+  f.count:SetShadowOffset(2, -2)
   f.count:SetJustifyH("CENTER")
 
   -- Low ammo: the glow breathes.
@@ -318,8 +318,40 @@ function Q.Restyle()
     return
   end
   local style = Nock.StyleId and Nock.StyleId() or "emerald"
-  frame.art:SetTexture(TEX .. (style == "gunsmith" and "q_pouch" or "q_quiver"))
-  frame:SetScale(Scale())
+  local f = frame
+  f.glow:ClearAllPoints()
+  f.disc:ClearAllPoints()
+  f.ring:ClearAllPoints()
+  f.art:ClearAllPoints()
+  f.count:ClearAllPoints()
+  if style == "gunsmith" then
+    -- Ammo pouch: art inside the ring, count under it.
+    f:SetSize(BASE, BASE)
+    f.art:SetTexture(TEX .. "q_pouch")
+    f.glow:SetPoint("TOPLEFT", -12, 12)
+    f.glow:SetPoint("BOTTOMRIGHT", 12, -12)
+    f.disc:SetAllPoints()
+    f.ring:SetAllPoints()
+    f.art:SetPoint("TOPLEFT", 5, -3)
+    f.art:SetPoint("BOTTOMRIGHT", -5, 7)
+    f.count:SetPoint("TOP", f, "BOTTOM", 0, 4)
+    Font(f.count, 22)
+  else
+    -- Emerald (3.3.1): Ben's painted quiver, large, over the ring. The count
+    -- sits in the arch between the quiver's legs.
+    f:SetSize(EMERALD_SIZE, EMERALD_SIZE)
+    f.art:SetTexture(TEX .. "q_quiver")
+    f.art:SetAllPoints()
+    f.glow:SetPoint("TOPLEFT", -8, 8)
+    f.glow:SetPoint("BOTTOMRIGHT", 8, -8)
+    f.disc:SetPoint("TOPLEFT", 8, -8)
+    f.disc:SetPoint("BOTTOMRIGHT", -8, 8)
+    f.ring:SetPoint("TOPLEFT", 4, -4)
+    f.ring:SetPoint("BOTTOMRIGHT", -4, 4)
+    f.count:SetPoint("CENTER", f, "CENTER", COUNT_X, COUNT_Y)
+    Font(f.count, 17)
+  end
+  f:SetScale(Scale())
 end
 
 local function Paint()

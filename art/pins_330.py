@@ -125,7 +125,7 @@ ART = {
     "q_disc": (128, disc()),
     "q_ring": (128, ring()),
     "q_glow": (128, glow()),
-    "q_quiver": (128, quiver()),
+    # q_quiver.tga is Ben's painted quiver since 3.3.1 (art/quiver_331.py).
     "q_pouch": (128, pouch()),
 }
 

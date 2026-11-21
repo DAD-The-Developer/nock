@@ -22,6 +22,11 @@ If the game says it is out of date, enable "Load out of date AddOns"
 once, then tell me the interface number from /dump select(4, GetBuildInfo()).
 
 
+New in 3.3.1
+New Emerald quiver counter art: a painted elven quiver, larger, sitting
+over the coloured ring, with the ammo count in the arch between its
+legs. Gunsmith keeps the ammo pouch. Restart the game fully once.
+
 New in 3.3.0
 Hunter map pins: hunter trainers, pet trainers, stable masters and
 ammo vendors on your minimap and world map, for your faction, in every

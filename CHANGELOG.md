@@ -2,6 +2,10 @@
 
 All notable changes to Nock from 3.0.11 onward. The addon folder's `Nock/README.txt` also has older notes.
 
+## 3.3.1
+
+New Emerald quiver counter art: Ben's painted elven quiver (green and white fletching, gold filigree, emerald gems) replaces the code-drawn one. It is larger (84 px before bar-size scaling), drawn over the green / yellow / red ring so the ring never covers it, and the ammo count sits low in the arch between the quiver's legs with a heavy black outline and drop shadow. Gunsmith keeps the ammo pouch. The new texture needs a full game restart the first time.
+
 ## 3.3.0
 
 Hunter map pins: hunter trainers, pet trainers, stable masters and ammo vendors (arrows, bullets, quivers and ammo pouches) show on the minimap and the world map, for your faction, in every major city and town in Kalimdor and the Eastern Kingdoms. On by default. Each kind has its own icon (bow, pawprint, horseshoe, arrow bundle) and a tooltip with the NPC's name, role, zone and coordinates. On the minimap the nearest one of each kind stays on the edge, dimmed, when it is out of range, so you always know which way to go. `/nock pins` turns them all on or off; `/nock pins trainer | pet | stable | ammo` hides one kind; `/nock pins minimap | map` picks where; `/nock pins hostile` also shows the other faction's NPCs. The same toggles are in Options under "Maps and ammo", and "Show or hide hunter map pins" is in Key Bindings > AddOns > Nock.
