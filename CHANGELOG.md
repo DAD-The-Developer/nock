@@ -2,6 +2,10 @@
 
 All notable changes to Nock from 3.0.11 onward. The addon folder's `Nock/README.txt` also has older notes.
 
+## 3.5.1
+
+Packaging: first CurseForge release via BigWigs packager; GPL-3.0 license.
+
 ## 3.5.0
 
 Pro polish across the board: one notification system, a rebuilt Nock window, and complete hunter map pins.

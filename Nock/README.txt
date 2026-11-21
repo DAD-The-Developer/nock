@@ -22,6 +22,9 @@ If the game says it is out of date, enable "Load out of date AddOns"
 once, then tell me the interface number from /dump select(4, GetBuildInfo()).
 
 
+New in 3.5.1
+Packaging: first CurseForge release via BigWigs packager; GPL-3.0 license.
+
 New in 3.5.0
 One clean alert system for every reminder: a small movable stack with
 the real spell or item icon, a short title and one line of detail,
