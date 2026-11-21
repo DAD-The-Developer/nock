@@ -22,6 +22,20 @@ If the game says it is out of date, enable "Load out of date AddOns"
 once, then tell me the interface number from /dump select(4, GetBuildInfo()).
 
 
+New in 3.3.0
+Hunter map pins: hunter trainers, pet trainers, stable masters and
+ammo vendors on your minimap and world map, for your faction, in every
+major city and town. Hover a pin for the name, role and zone. The
+nearest one of each kind waits on the minimap edge when it is out of
+range. /nock pins turns them on or off; /nock pins trainer | pet |
+stable | ammo hides one kind; /nock pins hostile also shows the other
+faction. Toggles are in Options under "Maps and ammo".
+Quiver counter: a quiver (or ammo pouch in Gunsmith) with your ammo
+count in big numbers. Green is stocked, yellow is half, red means buy
+more. Shift-drag to move it. /nock quiver turns it off;
+/nock quiver unlock | lock | reset.
+Restart the game fully once so the new icons load.
+
 New in 3.2.0
 The Gunsmith options window no longer shows a tan slab or a floating
 title bar: the panel background is a solid dark wood, and the header

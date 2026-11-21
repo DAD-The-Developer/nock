@@ -37,6 +37,12 @@ Then open Nock in any of these ways:
 
 A short install note also ships inside the addon as `Nock/INSTALL.txt`.
 
+## Map pins and quiver counter (3.3.0)
+
+Hunter trainers, pet trainers, stable masters and ammo vendors show on the minimap and the world map for your faction, in every major city and town in Kalimdor and the Eastern Kingdoms. The nearest one of each kind stays on the minimap edge when it is out of range. `/nock pins` turns them on or off; `/nock pins trainer | pet | stable | ammo | minimap | map | hostile` toggles one part. The client has no NPC location API, so the spots are a built-in list (`Nock/PinsData.lua`) of Classic-era spawn points taken from the community [QuestieDB](https://github.com/Questie/QuestieDB) Forever data.
+
+A movable quiver counter (an ammo pouch in Gunsmith) shows your ammo in big numbers: green when stocked, yellow at half, red when low. Shift-drag to move; `/nock quiver`, `/nock quiver unlock | lock | reset`.
+
 ## Switching styles
 
 Nock starts with the Emerald bow. To use the Gunsmith rifle look, open Nock, go to Options, and choose Style: Gunsmith. You can also type:

@@ -2,6 +2,12 @@
 
 All notable changes to Nock from 3.0.11 onward. The addon folder's `Nock/README.txt` also has older notes.
 
+## 3.3.0
+
+Hunter map pins: hunter trainers, pet trainers, stable masters and ammo vendors (arrows, bullets, quivers and ammo pouches) show on the minimap and the world map, for your faction, in every major city and town in Kalimdor and the Eastern Kingdoms. On by default. Each kind has its own icon (bow, pawprint, horseshoe, arrow bundle) and a tooltip with the NPC's name, role, zone and coordinates. On the minimap the nearest one of each kind stays on the edge, dimmed, when it is out of range, so you always know which way to go. `/nock pins` turns them all on or off; `/nock pins trainer | pet | stable | ammo` hides one kind; `/nock pins minimap | map` picks where; `/nock pins hostile` also shows the other faction's NPCs. The same toggles are in Options under "Maps and ammo", and "Show or hide hunter map pins" is in Key Bindings > AddOns > Nock.
+
+Quiver counter: a quiver (Emerald) or ammo pouch (Gunsmith) on screen with your ammo count in big numbers. The ring is green when stocked (over 66% of what your quiver or pouch holds, or of 1000 with none equipped), yellow at 33–66%, and red below that, with a slow pulse. Hover for the ammo name and count. Shift-drag to move it; `/nock quiver unlock` lets you drag it freely, `/nock quiver lock` and `/nock quiver reset` put it back. `/nock quiver` or the "Show or hide the quiver counter" keybind turns it off. New textures need a full game restart the first time.
+
 ## 3.2.0
 
 The Gunsmith options window no longer shows a tan slab or a floating title bar: the panel background is a solid dark wood, and the header sits on the top edge with matching corners. The settings window in both styles is larger, easier to read (16–18 pt at Large), and uses plain toggle rows and segmented size/style buttons. The Cheat Sheet lists every key in two columns with the full name, never cut off.

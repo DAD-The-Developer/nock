@@ -11,4 +11,10 @@
   <Binding name="NOCK_THREAT_UNLOCK">
     Nock_ToggleThreatUnlock()
   </Binding>
+  <Binding name="NOCK_PINS">
+    Nock_TogglePins()
+  </Binding>
+  <Binding name="NOCK_QUIVER">
+    Nock_ToggleQuiver()
+  </Binding>
 </Bindings>

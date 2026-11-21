@@ -16,6 +16,7 @@ Whenever Nock is updated:
        python3 tests/run_style.py
        python3 tests/run_threat.py
        python3 tests/run_fresh_load.py
+       python3 tests/run_pins.py
 
 5. Build the shareable zip:
 

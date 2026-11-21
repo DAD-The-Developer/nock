@@ -226,6 +226,27 @@ local function Build(page)
     function() return DB().mouse ~= false end, function(on) if Nock.Keymap21 then Nock.Keymap21.SetMouse(on) else DB().mouse = on end end)
 
   child._y = child._y - 8
+  Section(child, "Maps and ammo", 8, child._y, cw - 16)
+  child._y = child._y - 40
+
+  local P = Nock.Pins
+  add("Hunter map pins", "Hunter trainers, pet trainers, stable masters and ammo vendors on your minimap and world map. The nearest one of each kind sits on the minimap edge when it is out of range. Also /nock pins or the keybind.",
+    function() return P and P.IsOn() end, function(on) if P then P.SetOn(on) end end)
+  add("   On the minimap", "Pins on the minimap.",
+    function() return P and P.MinimapOn() end, function(on) if P then P.SetMinimap(on) end end)
+  add("   On the world map", "Pins on the big map (M) for the zone you are looking at.",
+    function() return P and P.WorldOn() end, function(on) if P then P.SetWorld(on) end end)
+  for _, k in ipairs(P and P.KINDS or {}) do
+    local id = k.id
+    add("   " .. k.label, "Show " .. string.lower(k.label) .. " on the maps.",
+      function() return P.KindOn(id) end, function(on) P.SetKind(id, on) end)
+  end
+  add("   Other faction too", "Also show the other faction's NPCs, greyed out. Off by default.",
+    function() return P and P.HostileOn() end, function(on) if P then P.SetHostile(on) end end)
+  add("Quiver counter", "A quiver (or ammo pouch in Gunsmith) with your ammo count in big numbers. Green is well stocked, yellow is half, red means buy more. Hold Shift and drag to move it. Also /nock quiver.",
+    function() return Nock.Quiver and Nock.Quiver.IsOn() end, function(on) if Nock.Quiver then Nock.Quiver.SetOn(on) end end)
+
+  child._y = child._y - 8
   Section(child, "Extras", 8, child._y, cw - 16)
   child._y = child._y - 40
 

@@ -624,6 +624,8 @@ BINDING_NAME_NOCK_NOTES = "Show or hide Hunting Notes"
 BINDING_NAME_NOCK_WINDOW = "Open Nock"
 BINDING_NAME_NOCK_STYLE = "Switch HUD style (Emerald / Gunsmith)"
 BINDING_NAME_NOCK_THREAT_UNLOCK = "Unlock or lock the threat meter"
+BINDING_NAME_NOCK_PINS = "Show or hide hunter map pins"
+BINDING_NAME_NOCK_QUIVER = "Show or hide the quiver counter"
 
 function _G.Nock_ToggleNotes()
   local Nock = _G.Nock

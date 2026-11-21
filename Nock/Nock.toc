@@ -2,7 +2,7 @@
 ## Title: Nock
 ## Notes: Keyboard hunter hands, one-click BM/Marks profiles (keys, macros, talent plan) and written field manuals for World of Warcraft: Forever.
 ## Author: Nock
-## Version: 3.2.0
+## Version: 3.3.0
 ## SavedVariables: NockDB
 ## SavedVariablesPerCharacter: NockCharDB
 ## IconTexture: Interface\Icons\ClassIcon_Hunter
@@ -22,5 +22,8 @@ UI_MyRotation.lua
 UI_Glow.lua
 Setup.lua
 Threat.lua
+PinsData.lua
+HunterMap.lua
+Quiver.lua
 UI_Options.lua
 UI_Launcher.lua

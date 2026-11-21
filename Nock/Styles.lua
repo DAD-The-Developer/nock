@@ -325,6 +325,9 @@ local function RefreshHUD()
   if Nock and Nock.Launcher and Nock.Launcher.Restyle then
     pcall(Nock.Launcher.Restyle)
   end
+  if Nock and Nock.Quiver and Nock.Quiver.Restyle then
+    pcall(Nock.Quiver.Restyle)
+  end
 end
 
 -- skipRefresh: used at file load, before the HUD exists.
