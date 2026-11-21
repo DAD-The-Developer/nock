@@ -61,6 +61,7 @@ Eleven small tools on one core (`Nock/Core.lua`): each is on by default, with it
 | `/nock tracker` | Kills to level, XP/hour; gold/hour at 60 |
 | `/nock pvp` | Enemy player readout, trinket alerts, PvP field notes |
 | `/nock tools` | List, `mute`, `endgame auto/on/off`, `pvp on/off` |
+| `/nock unlock` / `lock` / `reset positions` | Move every Nock frame (3.4.1) |
 
 Data lives in `Data_Spells.lua` (Forever trainer list, from wowforever.one, CC BY 4.0), `Data_Pets.lua` (families, diets and ranks from warcraftmaps.com; rare beasts and teachers are Classic data; spawn points from QuestieDB), `Data_Food.lua`, `Data_Route.lua` and `Data_PvP.lua`. Add rows to grow them.
 

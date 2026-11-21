@@ -22,6 +22,15 @@ If the game says it is out of date, enable "Load out of date AddOns"
 once, then tell me the interface number from /dump select(4, GetBuildInfo()).
 
 
+New in 3.4.1
+Move any Nock frame: /nock unlock outlines every movable frame
+(tracker, quiver, threat meter, range and PvP readouts, alerts) so you
+can drag it; /nock lock when done; /nock reset positions puts them all
+back. Also Options > Hunter tools > Unlock frames, and a keybind.
+The kill / XP tracker now sits at the top centre, clear of the bow bar,
+moves with Shift-drag (or /nock tracker unlock | lock | reset), and
+shows an estimate before your first kill instead of "?".
+
 New in 3.4.0
 Hunter tools, all on by default, each with its own switch in Options >
 Hunter tools and a page section on the new Tools tab (/nock kit):

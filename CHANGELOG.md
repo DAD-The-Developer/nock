@@ -2,6 +2,13 @@
 
 All notable changes to Nock from 3.0.11 onward. The addon folder's `Nock/README.txt` also has older notes.
 
+## 3.4.1
+
+- The kill / XP tracker sat on top of the bar stack under the bow, where the pet / extra row covered it and took the mouse, so Shift-drag did nothing. It now starts at the top centre, sits above the bars (HIGH strata) with a dark backdrop, an emerald edge and a `::` grip, sizes itself to its text, and stays on screen. Shift-drag moves it; `/nock tracker unlock | lock | reset` too. Old 3.4.0 positions are dropped.
+- Before your first kill the tracker shows an estimate from the same-level mob XP formula ("about 26 kills to 29") instead of "?". At 60 it reads "1 kill" / "12 kills" and no longer shows a bare dash.
+- `/nock unlock` and `/nock lock` toggle drag mode for every movable Nock frame (tracker, quiver counter, threat meter, range / Wing Clip readout, PvP readout, alert banner), each with a green outline and its name while unlocked; readouts show a sample so you can place them. `/nock reset positions` puts every frame back. Also Options > Hunter tools > "Unlock frames" and the unbound keybind "Unlock or lock all Nock frames". Frames lock again in combat and on login.
+- The range and PvP readouts and the alert banner only take the mouse while unlocked, so they never block clicks or camera turning. The range readout now defaults a little higher (centre, 90 px down) to stay clear of the bar stack.
+
 ## 3.4.0
 
 Hunter tools: eleven small tools that share one core (module registry, one event frame, throttled ticker, per-tool settings in `NockCharDB.mods`). Each is on by default, has its own switch and settings in Options > Hunter tools, a `/nock` word, and a section on the new **Tools** tab (`/nock kit`). `/nock tools` lists them; `/nock tools mute` silences their alerts.

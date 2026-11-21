@@ -43,6 +43,7 @@ function Obj(kind)
     function g:IsPlaying() return self._playing end
     return g
   end
+  function m:EnableMouse(on) self._mouse = on end
   function m:RegisterEvent(e) self._events = self._events or {}; self._events[e] = true end
   setmetatable(o, { __index = function(_, k)
     if m[k] then return m[k] end

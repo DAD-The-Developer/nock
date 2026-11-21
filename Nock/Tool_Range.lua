@@ -203,7 +203,7 @@ local function Make()
   end
   local f = CreateFrame("Frame", "NockRangeFrame", UIParent)
   f:SetSize(420, 64)
-  f:SetPoint("CENTER", UIParent, "CENTER", 0, -150)
+  f:SetPoint("CENTER", UIParent, "CENTER", 0, -90)
   f:SetFrameStrata("MEDIUM")
   if f.EnableMouse then
     f:EnableMouse(false)
@@ -226,6 +226,20 @@ local function Make()
   f:Hide()
   frame = f
   M.frame = f
+  if Core.MakeMovable then
+    Core.MakeMovable(f, "range", "Dead zone / Wing Clip readout", { "CENTER", "CENTER", 0, -90 }, {
+      preview = function(on)
+        if on then
+          f.head:SetText("WING CLIP, then step back")
+          f.head:SetTextColor(1, 0.8, 0.2)
+          f.sub:SetText("Sample: the melee / dead zone readout")
+          f:Show()
+        else
+          f:Hide()
+        end
+      end,
+    })
+  end
   return f
 end
 
@@ -248,6 +262,9 @@ local function Show(head, color, sub, clipLeft)
 end
 
 local function Hide()
+  if Core.Unlocked and Core.Unlocked() then
+    return
+  end
   if frame then
     frame:Hide()
   end
@@ -383,6 +400,7 @@ function M.Update()
 end
 
 function M:Init()
+  Make()
   local _, _, name = Core.Call(Nock.PlayerKnows, "Wing Clip")
   if type(name) == "string" and name ~= "" then
     wingName = name

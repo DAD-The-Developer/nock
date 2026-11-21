@@ -34,6 +34,9 @@
   <Binding name="NOCK_TRACKER">
     Nock_ToggleTracker()
   </Binding>
+  <Binding name="NOCK_UNLOCK">
+    Nock_ToggleUnlock()
+  </Binding>
   <Binding name="NOCK_MUTE_TOOLS">
     Nock_MuteTools()
   </Binding>

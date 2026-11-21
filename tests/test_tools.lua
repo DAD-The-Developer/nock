@@ -33,7 +33,7 @@ POINTS = { 21, 5, 0 }
 Nock.TraitPointsByTab = function() return POINTS[1], POINTS[2], POINTS[3] end
 
 local FILES = {
-  "PinsData.lua", "HunterMap.lua", "Quiver.lua", "Core.lua", "Data_Spells.lua", "Data_Pets.lua", "Data_Food.lua", "Data_Route.lua",
+  "PinsData.lua", "HunterMap.lua", "Quiver.lua", "Core.lua", "Movers.lua", "Data_Spells.lua", "Data_Pets.lua", "Data_Food.lua", "Data_Route.lua",
   "Tool_PetCare.lua", "Tool_Supplies.lua", "Tool_Vendor.lua", "Tool_Range.lua", "Tool_Taming.lua", "Tool_Aspects.lua",
   "Tool_Feign.lua", "Tool_Guide.lua", "Tool_Trainer.lua", "Tool_Tracker.lua", "Data_PvP.lua", "Tool_PvP.lua",
 }
@@ -269,6 +269,9 @@ check(has(CHAT, "At the trainer:"), "level-up trainer message")
 
 -- 10 Tracker ------------------------------------------------------------------------------------------------------------
 local Tk = Core.Module("tracker")
+local before = Tk.Line()
+check(before:find("about ", 1, true) == 1 and not before:find("?", 1, true) and before:find("kills to 27", 1, true), "before the first kill: estimate, no '?': " .. before)
+check(Tk.EstimateKillXP(28, 0) == 185 and Tk.EstimateKillXP(28, 500) == 370, "same-level mob XP estimate")
 local k, ph, tl = Tk.Leveling(1000, 10000, 300, 9000, 1800)
 check(k == 30 and math.floor(ph) == 18000 and math.floor(tl) == 1800, "kills / XP per hour / time to level")
 fire("CHAT_MSG_COMBAT_XP_GAIN", "Kobold dies, you gain 300 experience. (+150 exp Rested bonus)")
@@ -342,6 +345,39 @@ local off = false
 for _, s in ipairs(page.sections) do if s.head._text:find("(off)", 1, true) then off = true end end
 check(off, "Tools tab shows switched-off tools")
 SlashCmdList.NOCK("tracker on")
+
+-- 3.4.1 frames: movable, default spots, unlock / lock / reset -------------------------------------------------------------
+Nock.Threat = { SetLocked = function(on) THREAT_LOCKED = on; return true end, ResetPos = function() THREAT_RESET = true end }
+local trk = _G.NockTrackerFrame
+check(trk and Core.movers.tracker, "tracker is a registered movable frame")
+local p1 = trk._points
+check(p1[1] == "TOP" and p1[3] == "TOP" and p1[5] == -34, "tracker defaults to top centre, away from the bow bar")
+check(trk._w >= 260, "tracker frame wide enough for its text (" .. tostring(trk._w) .. ")")
+check(not Tk.Line():find("?", 1, true), "no '?' in the tracker line: " .. Tk.Line())
+check(Core.movers.range and Core.movers.pvp and Core.movers.alert, "range, PvP and alert frames are movable")
+check(_G.NockRangeFrame._mouse ~= true, "range readout does not take the mouse while locked")
+SlashCmdList.NOCK("unlock")
+check(Core.Unlocked() and NockCharDB.quiverLocked == false and THREAT_LOCKED == false, "/nock unlock: all frames incl. quiver and threat")
+check(trk.nockMoverHL and trk.nockMoverHL.text._shown, "unlocked frames show their outline and name")
+check(_G.NockRangeFrame._shown and _G.NockRangeFrame._mouse == true, "range readout shows a sample and takes the mouse while unlocked")
+NOW = NOW + 1; Core._Tick(nil, 1)
+check(_G.NockRangeFrame._shown, "readout stays up while unlocked")
+-- drag
+trk._points = { "TOP", UIParent, "TOP", 120, -80 }
+trk._scripts.OnDragStart(trk); trk._scripts.OnDragStop(trk)
+check(NockCharDB.positions.tracker and NockCharDB.positions.tracker[3] == 120, "drag saves the position")
+SlashCmdList.NOCK("lock")
+check(not Core.Unlocked() and NockCharDB.quiverLocked == nil and THREAT_LOCKED == true, "/nock lock")
+check(not trk.nockMoverHL.text._shown and not _G.NockRangeFrame._shown, "outlines and samples hidden after lock")
+SlashCmdList.NOCK("tracker unlock")
+check(Core.Get("tracker", "unlocked") == true and trk.nockMoverHL.text._shown, "/nock tracker unlock")
+SlashCmdList.NOCK("tracker reset")
+check(trk._points[1] == "TOP" and trk._points[4] == 0 and NockCharDB.positions.tracker == nil and not trk.nockMoverHL.text._shown, "/nock tracker reset")
+NockCharDB.positions.range = { "CENTER", "CENTER", 5, 5 }
+SlashCmdList.NOCK("reset positions")
+check(next(NockCharDB.positions) == nil and THREAT_RESET, "/nock reset positions")
+SlashCmdList.NOCK("unlock"); COMBAT = true; fire("PLAYER_REGEN_DISABLED"); COMBAT = false
+check(not Core.Unlocked(), "combat locks frames again")
 
 -- Mute ---------------------------------------------------------------------------------------------------------------------
 SlashCmdList.NOCK("tools mute")

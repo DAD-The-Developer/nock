@@ -252,6 +252,8 @@ local function Build(page)
     child._y = child._y - 8
     Section(child, "Hunter tools", 8, child._y, cw - 16)
     child._y = child._y - 40
+    add("Unlock frames (move them)", "Outlines every movable Nock frame — tracker, quiver, threat meter, range and PvP readouts, alerts — so you can drag them. Turn off to lock. Locks itself in combat and on login. Also /nock unlock, /nock lock, /nock reset positions, or the keybind.",
+      function() return Core.Unlocked and Core.Unlocked() end, function(on) if Core.SetUnlocked then Core.SetUnlocked(on) end end)
     add("Mute hunter tool alerts", "Silences the big centre alerts and edge flashes from every hunter tool. The readouts stay. Also /nock tools mute or the keybind.",
       function() return Core.Muted() end, function(on) if Core.Muted() ~= (on and true or false) then Core.Slash("mute") end end)
     add("Endgame mode at level 60", "At 60 the guide and tracker switch to raid-night checklists and gold per hour, and leveling-only nudges step aside. Off keeps leveling mode. /nock tools endgame auto | on | off.",

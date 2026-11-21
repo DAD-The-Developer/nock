@@ -189,6 +189,21 @@ local function Make()
   f:Hide()
   frame = f
   M.frame = f
+  if Core.MakeMovable then
+    Core.MakeMovable(f, "pvp", "PvP readout", { "CENTER", "CENTER", 0, 210 }, {
+      preview = function(on)
+        if on then
+          f.lines[1]:SetText("ENEMY ROGUE  ·  melee  ·  Scorpid Sting")
+          f.lines[2]:SetText("Not slowed: Concussive Shot / Wing Clip, step back")
+          f.lines[3]:SetText("Evasion: dodging — step back and shoot")
+          f.lines[4]:SetText("Conc   Scatter   Freeze   Frost   Clip   Feign")
+          f:Show()
+        else
+          f:Hide()
+        end
+      end,
+    })
+  end
   return f
 end
 
@@ -200,6 +215,9 @@ local function WantReadout()
 end
 
 function M.Update()
+  if Core.Unlocked and Core.Unlocked() then
+    return
+  end
   if not (WantReadout() and M.EnemyPlayer()) then
     if frame then
       frame:Hide()
@@ -273,6 +291,10 @@ Core.On("UNIT_SPELLCAST_SUCCEEDED", "pvp", function(_, unit, _, spellID)
       sub = "They broke free. Re-apply: Concussive, Scatter, trap.", sound = "soft", duration = 3 })
   end
 end)
+
+function M:Init()
+  Make()
+end
 
 function M:Refresh()
   if frame and not Core.Enabled("pvp") then

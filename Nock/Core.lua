@@ -806,6 +806,24 @@ local function MakeAlert()
   sub:SetJustifyH("LEFT")
   f.sub = sub
   f:Hide()
+  if Core.MakeMovable then
+    Core.MakeMovable(f, "alert", "Hunter tool alerts", { "TOP", "TOP", 0, -150 }, {
+      preview = function(on)
+        if on then
+          f.text:SetText("Hunter tool alerts")
+          f.text:SetTextColor(1, 0.8, 0.2)
+          f.sub:SetText("Big warnings show here")
+          f.icon:Hide()
+          f.untilT = Now() + 1e9
+          f:SetAlpha(1)
+          f:Show()
+        else
+          f:Hide()
+          f.key, f.prio = nil, nil
+        end
+      end,
+    })
+  end
   f:SetScript("OnUpdate", function(self)
     local left = (self.untilT or 0) - Now()
     if left <= 0 then
@@ -840,6 +858,9 @@ function Core.Alert(text, opts)
   opts = opts or {}
   if Core.Muted() and not opts.force then
     return false
+  end
+  if Core.Unlocked and Core.Unlocked() then
+    return false -- the alert spot is showing its sample while frames are unlocked
   end
   local f = MakeAlert()
   local prio = opts.priority or 2
@@ -882,6 +903,8 @@ function Core.Alert(text, opts)
   Core.lastAlert = text
   return true
 end
+
+Core.EnsureAlert = MakeAlert
 
 function Core.HideAlert(key)
   if alert and alert:IsShown() and (not key or alert.key == key) then
