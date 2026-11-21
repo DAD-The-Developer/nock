@@ -62,8 +62,31 @@ Eleven small tools on one core (`Nock/Core.lua`): each is on by default, with it
 | `/nock pvp` | Enemy player readout, trinket alerts, PvP field notes |
 | `/nock tools` | List, `mute`, `endgame auto/on/off`, `pvp on/off` |
 | `/nock unlock` / `lock` / `reset positions` | Move every Nock frame (3.4.1) |
+| `/nock alerts` | `test`, `quiet`, `sound`, `size 0.8-1.4`, `max 1|2`, `list`, `<category> on|off`, `<alert id> on|off` (3.5.0) |
 
 Data lives in `Data_Spells.lua` (Forever trainer list, from wowforever.one, CC BY 4.0), `Data_Pets.lua` (families, diets and ranks from warcraftmaps.com; rare beasts and teachers are Classic data; spawn points from QuestieDB), `Data_Food.lua`, `Data_Route.lua` and `Data_PvP.lua`. Add rows to grow them.
+
+## Alerts (3.5.0)
+
+Every Nock reminder goes through one alert manager (`Nock/Alerts.lua`): a single movable stack (`/nock unlock`), at most one or two toasts on screen, critical first and the rest queued, with de-duplication, per-alert cooldowns, a short fade and auto-dismiss (critical 4 s, warning 5 s, info 6 s). Toasts show the real spell or item icon, a short title, one line of detail and a thin accent bar (red critical, amber warning, emerald or brass info). The look comes from a theme table per style (Emerald: dark wood, silver-gold trim; Gunsmith: gunmetal, brass); a new style only lists what differs and inherits the rest. Sound plays only for critical alerts and can be turned off. Options > Alerts has size, how many at once, quiet mode (critical only), sound, edge flashes, a Test alerts button (also `/nock alerts test` and an unbound keybind) and a switch for every category and every alert, generated from the registry.
+
+### Adding an alert
+
+1. Declare it in `Nock/Data_Alerts.lua`:
+
+```lua
+{ id = "pet.lowhealth", category = "pet", priority = "warning", icon = "spell:Mend Pet",
+  title = "{pet} is low", sub = "Mend Pet or back off", cooldown = 20,
+  contexts = { pvp = false }, minLevel = 12, label = "Pet health low" },
+```
+
+2. Fire it where the condition happens: `Nock.Alerts:Fire("pet.lowhealth", { pet = name })`.
+
+That's all: Options > Alerts gets its switch, `/nock alerts pet.lowhealth off` works, quiet mode, cooldowns, PvP and level rules apply. `Nock.Alerts:Clear(id)` hides it early. Other fields: `spec = { bm = true }`, `condition = function(vars) ... end`, `contexts = { only = true, pvp = true }` (PvP only), `duration`, `sound = false`. Icons: `"spell:Name"`, `"item:ID"` or a texture path. New categories can be labelled in `Nock.Alerts.CATEGORY_LABELS`. A new style: `Nock.Alerts:RegisterTheme("mystyle", { trim = {...}, accent = { info = {...} } })`.
+
+## Map pins (3.5.0)
+
+Pins now cover hunter trainers and weapon masters, pet trainers, stable masters, ammo vendors, bowyers and gunsmiths, quiver and ammo pouch vendors, pet food vendors (only those selling what your pet eats unless you choose all), hunter class quest givers near your level, and flight masters (off by default). Each kind has its own switch. Hovering a vendor lists what it sells by category with item icons and the best item for your level, marking ammo for your ranged weapon and food your pet eats; a small dot on the pin shows a second category. The minimap shows the nearest few of each kind and folds overlapping pins into one; city and zone maps show each other's pins through world coordinates. Data is generated from QuestieDB Forever (`PinsData.lua`: rows plus `PinStock`, `PinItems`, `PinQuests`). A new kind is one row in `Pins.KINDS` plus a goods code in the generator.
 
 ## Switching styles
 

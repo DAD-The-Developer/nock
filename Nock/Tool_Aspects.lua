@@ -115,7 +115,9 @@ Core.On("UNIT_SPELLCAST_SUCCEEDED", "aspects", function(_, unit, _, spellID)
     if n == a or n == localName[a] then
       current = a
       fromCast = true
-      Core.HideAlert("aspect")
+      Nock.Alerts:Clear("aspect.daze")
+      Nock.Alerts:Clear("aspect.none")
+      Nock.Alerts:Clear("aspect.travel")
       return
     end
   end
@@ -137,11 +139,9 @@ local function CheckCombat()
     return
   end
   if (current == "Aspect of the Cheetah" or current == "Aspect of the Pack") and Core.Get("aspects", "daze") ~= false then
-    Core.Alert(current:gsub("Aspect of the ", "") .. " is ON in combat", { color = "bad", key = "aspect", priority = 3,
-      sub = "You get dazed when hit. Switch to " .. want:gsub("Aspect of the ", "") .. ".", sound = true, duration = 5 })
+    Nock.Alerts:Fire("aspect.daze", { aspect = (current:gsub("Aspect of the ", "")), want = want }, { icon = "spell:" .. current })
   elseif current == nil and Core.Get("aspects", "combat") ~= false then
-    Core.Alert("No aspect", { color = "warn", key = "aspect", priority = 2,
-      sub = "Turn on " .. want .. " for damage.", sound = "soft", duration = 4 })
+    Nock.Alerts:Fire("aspect.none", { want = want }, { icon = "spell:" .. want })
   end
 end
 
@@ -196,11 +196,8 @@ Core.Every("aspects", 1, function()
   end
   local delay = tonumber(Core.Get("aspects", "travelDelay")) or 10
   if moving >= delay and current ~= "Aspect of the Cheetah" and current ~= "Aspect of the Pack" then
-    if Core.Throttle("aspects:travel", 120) then
-      local pick = (Core.P.context == "party" and Core.Knows("Aspect of the Pack")) and "Aspect of the Pack" or "Aspect of the Cheetah"
-      Core.Alert("Travelling? " .. pick, { color = "info", key = "aspect", priority = 1,
-        sub = "Switch back to Hawk before you pull.", duration = 3 })
-    end
+    local pick = (Core.P.context == "party" and Core.Knows("Aspect of the Pack")) and "Aspect of the Pack" or "Aspect of the Cheetah"
+    Nock.Alerts:Fire("aspect.travel", { pick = pick }, { icon = "spell:" .. pick })
   end
 end)
 

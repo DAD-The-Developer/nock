@@ -248,11 +248,14 @@ local function PaintTile(t, r, i, last)
   t:Show()
 end
 
-local ROW_W = L.CONTENT_W
+local function RowW()
+  local U = Nock.UI
+  return (U and U.metrics and U.metrics.content) or L.CONTENT_W
+end
 
 local function MakeRow(parent)
   local r = CreateFrame("Frame", nil, parent)
-  r:SetSize(ROW_W, 34)
+  r:SetSize(RowW(), 34)
   r:EnableMouse(true)
   local bg = r:CreateTexture(nil, "BACKGROUND")
   bg:SetAllPoints()
@@ -279,7 +282,7 @@ local function MakeRow(parent)
   local why = r:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   EnsureFont(why, "GameFontHighlightSmall")
   why:SetPoint("TOPLEFT", 136, -19)
-  why:SetWidth(ROW_W - 216)
+  why:SetWidth(RowW() - 216)
   why:SetJustifyH("LEFT")
   why:SetJustifyV("TOP")
   why:SetTextColor(0.86, 0.86, 0.86)
@@ -470,13 +473,19 @@ local function MakeKeyCell(parent, width)
   cell.badge = badge
   local fs = cell:CreateFontString(nil, "OVERLAY")
   EnsureFont(fs, 16, "OUTLINE")
-  fs:SetPoint("TOPLEFT", badge, "TOPRIGHT", 8, -2)
+  fs:SetPoint("TOPLEFT", cell, "TOPLEFT", 64, -5)
   fs:SetPoint("RIGHT", cell, "RIGHT", -6, 0)
   fs:SetJustifyH("LEFT")
   fs:SetJustifyV("TOP")
   fs:SetWordWrap(true)
   fs:SetTextColor(0.92, 0.93, 0.86)
   cell.name = fs
+  -- 3.5.0: labels start on one fixed column, whatever the badge width.
+  cell.SetKeyColumn = function(self, x)
+    self.name:ClearAllPoints()
+    self.name:SetPoint("TOPLEFT", self, "TOPLEFT", x, -5)
+    self.name:SetPoint("RIGHT", self, "RIGHT", -6, 0)
+  end
   cell.Paint = function(self, rec)
     self.badge:SetKey(rec and rec.key, not (rec and rec.key), nil)
     self.name:SetText((rec and (rec.label or rec.id)) or "")
@@ -506,33 +515,44 @@ local function PaintKeyMap(page, width, y)
   if not map or #map == 0 then
     return 0
   end
-  local colW = math.floor((width - 16) / 2)
-  local leftH, rightH = 0, 0
-  local idx = 0
+  local colW = math.floor((width - 24) / 2)
+  -- Pass 1: badges, to find one key column for the whole list.
+  local keyCol = 48
   for i, rec in ipairs(map) do
-    idx = i
     local cell = page.keyCells[i]
     if not cell then
       cell = MakeKeyCell(page.child, colW)
       page.keyCells[i] = cell
     end
     cell:SetWidth(colW)
-    local h = cell:Paint(rec)
-    local col = (i - 1) % 2
-    if col == 0 then
-      cell:ClearAllPoints()
-      cell:SetPoint("TOPLEFT", page.child, "TOPLEFT", 8, y - leftH)
-      leftH = leftH + h + 4
-    else
-      cell:ClearAllPoints()
-      cell:SetPoint("TOPLEFT", page.child, "TOPLEFT", 8 + colW + 8, y - rightH)
-      rightH = rightH + h + 4
+    cell.badge:SetKey(rec and rec.key, not (rec and rec.key), nil)
+    keyCol = math.max(keyCol, (tonumber((cell.badge:GetWidth())) or 40) + 12)
+  end
+  keyCol = math.min(keyCol, math.floor(colW * 0.42))
+  -- Pass 2: rows in pairs so the two columns line up.
+  local total, idx = 0, 0
+  local i = 1
+  while i <= #map do
+    local hRow = 0
+    for col = 0, 1 do
+      local rec = map[i + col]
+      if rec then
+        local cell = page.keyCells[i + col]
+        cell:SetKeyColumn(keyCol)
+        hRow = math.max(hRow, cell:Paint(rec))
+        cell:ClearAllPoints()
+        cell:SetPoint("TOPLEFT", page.child, "TOPLEFT", 8 + col * (colW + 8), y - total)
+        cell:Show()
+        idx = i + col
+      end
     end
-    cell:Show()
+    total = total + hRow + 4
+    i = i + 2
   end
-  for i = idx + 1, #page.keyCells do
-    page.keyCells[i]:Hide()
+  for j = idx + 1, #page.keyCells do
+    page.keyCells[j]:Hide()
   end
+  local leftH, rightH = total, total
   return math.max(leftH, rightH) + 8
 end
 local function MakeCheatRow(parent, width, big)
@@ -625,6 +645,7 @@ local function PaintCheatRow(row, c, stripe)
       b:Hide()
     end
   end
+  row.text:SetWidth(math.max(120, (tonumber((row:GetWidth())) or 400) - row.keyW - 6))
   row.text:SetText(c.text)
   local missing = false
   for _, r in ipairs(c.rs) do
@@ -662,16 +683,16 @@ local function BuildPage(page)
   title:SetPoint("TOPLEFT", icon, "TOPRIGHT", 10, -1)
   page.title = title
   local built = page:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-  EnsureFont(built, "GameFontDisableSmall")
+  EnsureFont(built, 13, "")
   built:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -5)
   page.built = built
   local warn = page:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-  EnsureFont(warn, "GameFontNormalSmall")
+  EnsureFont(warn, 14, "")
   warn:SetPoint("TOPRIGHT", -16, -14)
   warn:SetJustifyH("RIGHT")
   page.warn = warn
   local note = page:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-  EnsureFont(note, "GameFontHighlightSmall")
+  EnsureFont(note, 13, "")
   note:SetPoint("TOPRIGHT", warn, "BOTTOMRIGHT", 0, -5)
   note:SetJustifyH("RIGHT")
   note:SetTextColor(0.7, 0.7, 0.7)
@@ -720,7 +741,7 @@ local function BuildPage(page)
       end)
     end,
   })
-  bindAll:SetPoint("RIGHT", cardBtn, "LEFT", -4, 0)
+  bindAll:SetPoint("RIGHT", cardBtn, "LEFT", -8, 0)
 
   local rebuild = L.BarButton(page, "Rebuild", 80, {
     lock = true,
@@ -729,7 +750,7 @@ local function BuildPage(page)
       MR.Invalidate()
     end,
   })
-  rebuild:SetPoint("RIGHT", bindAll, "LEFT", -4, 0)
+  rebuild:SetPoint("RIGHT", bindAll, "LEFT", -8, 0)
   return page
 end
 
@@ -833,15 +854,16 @@ local function PaintPage(page, p, d)
   end
   f:Header("Cheat Sheet", "That's it. These keys are all you need.", "Interface\\Icons\\INV_Misc_Note_06")
   do
-    local h = PaintKeyMap(page, ROW_W, f.y)
+    local h = PaintKeyMap(page, RowW(), f.y)
     f.y = f.y - h - 8
   end
   for i, c in ipairs(d.cheat or {}) do
     local cr = page.cheatRows[i]
     if not cr then
-      cr = MakeCheatRow(page.child, ROW_W, true)
+      cr = MakeCheatRow(page.child, RowW(), true)
       page.cheatRows[i] = cr
     end
+    cr:SetWidth(RowW())
     cr:ClearAllPoints()
     cr:SetPoint("TOPLEFT", page.child, "TOPLEFT", 0, f.y)
     local h = PaintCheatRow(cr, c, i % 2 == 0)

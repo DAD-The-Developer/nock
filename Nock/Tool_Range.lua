@@ -191,49 +191,71 @@ local frame
 local function Font(fs, size)
   local T = _G.NockTheme
   if T and T.EnsureFont then
-    T.EnsureFont(fs, size, "THICKOUTLINE")
+    T.EnsureFont(fs, size, "")
   else
-    pcall(fs.SetFont, fs, "Fonts\\FRIZQT__.TTF", size, "THICKOUTLINE")
+    pcall(fs.SetFont, fs, "Fonts\\FRIZQT__.TTF", size, "")
+  end
+  if fs.SetShadowOffset then
+    fs:SetShadowOffset(1, -1)
+    fs:SetShadowColor(0, 0, 0, 0.95)
   end
 end
 
+local function Theme()
+  local A = Nock.Alerts
+  return A and A:Theme() or nil
+end
+
+local CUE_H, CUE_ICON = 32, 22
+
+-- 3.5.0: one slim plate under your character — icon, a few words, and a
+-- 2 px Wing Clip timer along the bottom edge.
 local function Make()
   if frame then
     return frame
   end
   local f = CreateFrame("Frame", "NockRangeFrame", UIParent)
-  f:SetSize(420, 64)
+  f:SetSize(260, CUE_H)
   f:SetPoint("CENTER", UIParent, "CENTER", 0, -90)
   f:SetFrameStrata("MEDIUM")
   if f.EnableMouse then
     f:EnableMouse(false)
   end
+  f.bg = f:CreateTexture(nil, "BACKGROUND")
+  f.bg:SetPoint("TOPLEFT", 1, -1)
+  f.bg:SetPoint("BOTTOMRIGHT", -1, 1)
+  f.edges = {}
+  for i, spec in ipairs({ { "TOPLEFT", "TOPRIGHT", true }, { "BOTTOMLEFT", "BOTTOMRIGHT", true }, { "TOPLEFT", "BOTTOMLEFT", false }, { "TOPRIGHT", "BOTTOMRIGHT", false } }) do
+    local e = f:CreateTexture(nil, "BORDER")
+    e:SetPoint(spec[1])
+    e:SetPoint(spec[2])
+    if spec[3] then e:SetHeight(1) else e:SetWidth(1) end
+    f.edges[i] = e
+  end
+  f.icon = f:CreateTexture(nil, "ARTWORK")
+  f.icon:SetSize(CUE_ICON, CUE_ICON)
+  f.icon:SetPoint("LEFT", 6, 0)
+  f.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
   f.head = f:CreateFontString(nil, "OVERLAY")
-  Font(f.head, 26)
-  f.head:SetPoint("TOP", 0, 0)
+  Font(f.head, 16)
+  f.head:SetPoint("LEFT", f.icon, "RIGHT", 8, 0)
+  f.head:SetJustifyH("LEFT")
   f.sub = f:CreateFontString(nil, "OVERLAY")
-  Font(f.sub, 16)
-  f.sub:SetPoint("TOP", f.head, "BOTTOM", 0, -4)
-  -- Wing Clip timer bar.
-  f.barBg = f:CreateTexture(nil, "BACKGROUND")
-  f.barBg:SetSize(180, 8)
-  f.barBg:SetPoint("TOP", f.sub, "BOTTOM", 0, -6)
-  f.barBg:SetColorTexture(0, 0, 0, 0.6)
-  f.bar = f:CreateTexture(nil, "ARTWORK")
-  f.bar:SetPoint("LEFT", f.barBg, "LEFT", 0, 0)
-  f.bar:SetSize(180, 8)
-  f.bar:SetColorTexture(0.30, 1.00, 0.55, 0.9)
+  Font(f.sub, 13)
+  f.sub:SetPoint("LEFT", f.head, "RIGHT", 8, 0)
+  f.sub:SetJustifyH("LEFT")
+  f.bar = f:CreateTexture(nil, "OVERLAY")
+  f.bar:SetPoint("BOTTOMLEFT", 1, 1)
+  f.bar:SetHeight(2)
+  f.barBg = f.bar -- 3.4 name kept for older code paths
   f:Hide()
   frame = f
   M.frame = f
   if Core.MakeMovable then
-    Core.MakeMovable(f, "range", "Dead zone / Wing Clip readout", { "CENTER", "CENTER", 0, -90 }, {
+    Core.MakeMovable(f, "range", "Range / Wing Clip cue", { "CENTER", "CENTER", 0, -90 }, {
       preview = function(on)
         if on then
-          f.head:SetText("WING CLIP, then step back")
-          f.head:SetTextColor(1, 0.8, 0.2)
-          f.sub:SetText("Sample: the melee / dead zone readout")
-          f:Show()
+          M.Paint("Wing Clip, then step back", "warn", "rank 2", 6, "spell:Wing Clip")
         else
           f:Hide()
         end
@@ -243,22 +265,45 @@ local function Make()
   return f
 end
 
-local function Show(head, color, sub, clipLeft)
+local ICONS = { melee = "spell:Wing Clip", clip = "spell:Wing Clip", dead = "spell:Auto Shot", far = "spell:Auto Shot" }
+
+function M.Paint(head, color, sub, clipLeft, icon)
   local f = Make()
-  local c = Core.COLORS[color] or Core.COLORS.warn
+  local th = Theme()
+  local cue = th and th.cue or Core.COLORS
+  local c = cue[color] or cue.warn
+  local bgc = th and th.bgTop or { 0.06, 0.07, 0.06, 0.9 }
+  local trim = th and th.trim or { 0.7, 0.65, 0.5, 0.8 }
+  f.bg:SetColorTexture(bgc[1], bgc[2], bgc[3], 0.78)
+  for _, e in ipairs(f.edges) do
+    e:SetColorTexture(trim[1], trim[2], trim[3], 0.55)
+  end
+  local tex = Nock.Alerts and Nock.Alerts.ResolveIcon(icon or "spell:Wing Clip") or nil
+  f.icon:SetTexture(tex)
   f.head:SetText(head)
   f.head:SetTextColor(c[1], c[2], c[3])
   f.sub:SetText(sub or "")
-  f.sub:SetTextColor(0.92, 0.97, 0.94)
+  local sc = th and th.sub or { 0.7, 0.76, 0.72 }
+  f.sub:SetTextColor(sc[1], sc[2], sc[3])
+  local w = 6 + CUE_ICON + 8 + (tonumber((f.head:GetStringWidth())) or 160)
+  if sub and sub ~= "" then
+    w = w + 8 + (tonumber((f.sub:GetStringWidth())) or 60)
+  end
+  w = math.floor(math.max(160, w + 14) + 0.5)
+  f:SetWidth(w)
   if clipLeft and clipLeft > 0 then
-    f.bar:SetWidth(math.max(1, 180 * math.min(1, clipLeft / CLIP_DURATION)))
+    local g = cue.good or c
+    f.bar:SetColorTexture(g[1], g[2], g[3], 0.95)
+    f.bar:SetWidth(math.max(1, (w - 2) * math.min(1, clipLeft / CLIP_DURATION)))
     f.bar:Show()
-    f.barBg:Show()
   else
     f.bar:Hide()
-    f.barBg:Hide()
   end
   f:Show()
+end
+
+local function Show(head, color, sub, clipLeft, icon)
+  M.Paint(head, color, sub, clipLeft, icon)
 end
 
 local function Hide()
@@ -360,9 +405,7 @@ function M.Update()
 
   -- Wing Clip fell off while still in melee.
   if M.wasClipped and not clipped and zone == "melee" and Core.Get("range", "falloff") ~= false and Core.Throttle("range:falloff", 4) then
-    Core.Alert("Wing Clip fell off", { color = "warn", key = "wingclip",
-      sub = "It is still in melee: Wing Clip again, then step back.", sound = Core.PvPMode() and true or ((not Quiet()) and "soft" or nil),
-      priority = Core.PvPMode() and 3 or 2, duration = 2.5 })
+    Nock.Alerts:Fire("range.clipoff")
   end
   M.wasClipped = clipped and zone ~= "ok"
 
@@ -370,29 +413,32 @@ function M.Update()
   if zone == "melee" then
     if knowsClip and Core.Get("range", "wingclip") ~= false then
       if clipped then
-        Show("STEP BACK", "good", string.format("Wing Clip %ds%s — get out to 8 yards and shoot", math.ceil(left), src == "cast" and "*" or ""), left)
+        Show("Step back", "good", string.format("Wing Clip %ds%s", math.ceil(left), src == "cast" and "*" or ""), left, ICONS.clip)
       else
         wantClip = true
         local r = Core.Rank("Wing Clip")
-        local note = Core.Leans("survival") and "  (Improved Wing Clip can root)" or ""
-        Show("WING CLIP, then step back", "warn", (r > 1 and ("Rank " .. r) or "Not slowed") .. note)
+        local note = Core.Leans("survival") and "may root" or nil
+        Show("Wing Clip, then step back", "warn", note or (r > 1 and ("rank " .. r) or nil), nil, ICONS.melee)
       end
     elseif showIt then
-      Show("MELEE", "warn", "Raptor Strike, then step back out to 8 yards")
+      Show("Melee range", "warn", "Raptor Strike, then step back", nil, "spell:Raptor Strike")
     end
   elseif zone == "deadzone" and showIt then
-    Show("DEAD ZONE", "bad", clipped and string.format("Step back — Wing Clip %ds", math.ceil(left)) or "Too close to shoot: step back", clipped and left or nil)
+    Show("Dead zone", "bad", clipped and string.format("step back · Wing Clip %ds", math.ceil(left)) or "step back", clipped and left or nil, ICONS.dead)
   elseif zone == "far" and showIt and combat and Core.Get("range", "far") ~= false then
-    Show("TOO FAR", "info", "Move in to shoot")
+    Show("Out of range", "info", nil, nil, ICONS.far)
   else
     Hide()
   end
 
+  if zone == "deadzone" and lastZone ~= "deadzone" and Core.PvPMode() then
+    Nock.Alerts:Fire("range.deadzone")
+  end
   if zone == "deadzone" and Core.Get("range", "flash") ~= false and not Quiet() then
-    local again = Core.PvPMode() and 2 or (Core.Leans("marks") and 3 or 999)
+    local again = Core.PvPMode() and 3 or (Core.Leans("marks") and 4 or 999)
     if lastZone ~= "deadzone" or now - lastFlash > again then
       lastFlash = now
-      Core.Flash(1, 0.45, 0.1, 0.7)
+      Core.Flash(0.95, 0.45, 0.15, 0.6)
     end
   end
   SetGlow(wantClip)
@@ -421,7 +467,7 @@ end)
 
 function M:Slash(rest)
   if rest == "test" then
-    Show("WING CLIP, then step back", "warn", "Test: this is where the readout sits")
+    Show("Wing Clip, then step back", "warn", "test", 6, ICONS.melee)
     if C_Timer and C_Timer.After then
       C_Timer.After(3, Hide)
     end

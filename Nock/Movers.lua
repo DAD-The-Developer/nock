@@ -263,8 +263,8 @@ Core.On("PLAYER_LOGIN", "core", function()
   if Core.Unlocked() then
     DB().framesUnlocked = false
   end
-  if Core.EnsureAlert then
-    pcall(Core.EnsureAlert)
+  if Nock.Alerts and Nock.Alerts.EnsureStack then
+    pcall(Nock.Alerts.EnsureStack)
   end
 end)
 -- Combat: stop drag mode for the world readouts (they must not take clicks).

@@ -22,10 +22,9 @@ local M = Core.Register({
   name = "Feign Death resisted alert",
   desc = "Big alert and sound when Feign Death is resisted.",
   cmd = { "feign", "fd" },
-  defaults = { on = true, sound = true, flash = true },
+  defaults = { on = true, flash = true },
   options = {
-    { key = "sound", label = "Play the raid warning sound on a resisted Feign Death" },
-    { key = "flash", label = "Flash the screen edge red" },
+    { key = "flash", label = "Soft red edge flash on a resist" },
   },
   help = { "/nock feign — Feign Death resisted alert on or off   /nock feign test" },
 })
@@ -49,11 +48,9 @@ function M.Resisted(isFeigning, isDead)
 end
 
 function M.Fire()
-  Core.Alert("FEIGN DEATH RESISTED", { color = "bad", key = "feign", priority = 3, force = false,
-    sub = "You are still in combat. Trap, run, or feign again when it is ready.",
-    sound = Core.Get("feign", "sound") ~= false, duration = 4 })
+  Nock.Alerts:Fire("feign.resisted", nil, { force = true })
   if Core.Get("feign", "flash") ~= false then
-    Core.Flash(1, 0.1, 0.1, 0.9)
+    Core.Flash(0.9, 0.15, 0.12, 0.6)
   end
 end
 

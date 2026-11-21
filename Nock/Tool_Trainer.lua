@@ -125,23 +125,21 @@ function M:OnProfile(what)
       return
     end
     local names = {}
-    for i = 1, math.min(4, #miss) do
+    for i = 1, math.min(3, #miss) do
       names[#names + 1] = Label(miss[i])
     end
-    local text = "At the trainer: " .. table.concat(names, ", ") .. (#miss > 4 and string.format(" (+%d more)", #miss - 4) or "")
-    if #miss == 0 then
-      text = "Pet trainer: " .. table.concat(petNew, ", ")
-    end
+    local list = table.concat(names, ", ") .. (#miss > 3 and string.format("  +%d more", #miss - 3) or "")
+    local pets = table.concat(petNew, ", ")
     if Core.Get("train", "alert") ~= false then
-      Core.Alert(text, { color = "good", key = "train", priority = 1, sub = TrainerLine(), sound = "soft", duration = 6 })
-    end
-    Core.Say(text)
-    if #petNew > 0 and #miss > 0 then
-      Core.Say("Pet trainer: " .. table.concat(petNew, ", "))
-    end
-    local t = TrainerLine()
-    if t then
-      Core.Say(t)
+      if #miss > 0 then
+        Nock.Alerts:Fire("train.levelup", { list = list })
+      end
+      if #petNew > 0 then
+        Nock.Alerts:Fire("train.pet", { list = pets })
+      end
+    else
+      -- On-screen alert off: one compact chat line instead.
+      Core.Say((#miss > 0 and ("Trainer: " .. list) or "") .. (#petNew > 0 and ((#miss > 0 and "  ·  " or "") .. "Pet trainer: " .. pets) or ""))
     end
   end
   if C_Timer and C_Timer.After then
@@ -202,9 +200,11 @@ function M:Report()
 end
 
 function _G.Nock_TrainCheck()
-  local lines = M:Report()
-  Core.Alert(lines[1] or "Trainer", { color = "good", key = "train", priority = 1, sub = lines[#lines], duration = 5 })
-  for _, line in ipairs(lines) do
-    Core.Say(line)
+  local miss = Lists(false)
+  local names = {}
+  for i = 1, math.min(3, #miss) do
+    names[#names + 1] = Label(miss[i])
   end
+  local list = #miss == 0 and "Nothing waiting — you are up to date" or (table.concat(names, ", ") .. (#miss > 3 and string.format("  +%d more", #miss - 3) or ""))
+  Nock.Alerts:Fire("train.levelup", { list = list }, { force = true, test = true })
 end

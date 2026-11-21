@@ -26,8 +26,9 @@ local M = Core.Register({
   name = "Taming helper",
   desc = "Rare beasts on your maps, and the abilities your pet is missing with who teaches them.",
   cmd = { "tame", "taming", "rares" },
-  defaults = { on = true, pins = true, all = false },
+  defaults = { on = true, pins = true, all = false, nearby = true },
   options = {
+    { key = "nearby", label = "Tell me when a rare near my level is within 150 yards" },
     { key = "pins", label = "Show rare tameable beasts on the maps (paw pins)" },
     { key = "all", label = "Show every rare, not just ones near my level" },
   },
@@ -175,6 +176,24 @@ local function RareLine(r)
   return string.format("%s — %s %s%s, %s", r[1], r[2], r[3], r[5] and " elite" or "", r[4])
 end
 M.RareLine = RareLine
+
+-- 3.5.0: a quiet heads-up when a rare you could tame is close by.
+local NEAR_RARE_YARDS = 150
+Core.Every("tame", 10, function()
+  if not kind or Core.Get("tame", "nearby") == false or Core.InCombat() or Core.P.instance ~= "none" then
+    return
+  end
+  local P = Nock.Pins
+  if not (P and P.Nearest) then
+    return
+  end
+  local level = Core.P.level
+  local e, yd = P.Nearest(kind, function(x) return M.InBand(x.data[3], level, false) end)
+  if e and yd and yd < NEAR_RARE_YARDS then
+    Nock.Alerts:Fire("tame.nearby", { name = e.name, family = e.title, level = e.data[3], yards = math.floor(yd / 5 + 0.5) * 5 },
+      { key = "tame:" .. tostring(e.name), icon = "spell:Tame Beast" })
+  end
+end)
 
 function M:Init()
   AddPins()

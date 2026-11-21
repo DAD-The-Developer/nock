@@ -701,10 +701,22 @@ UI.MakeKeyBadge = MakeKeyBadge
 
 -- Main frame -----------------------------------------------------------------------
 
--- Window size follows the bar-size setting (Large is the default).
--- 8px grid, 16-18pt body, generous padding so nothing overlaps.
-local W, H = 920, 740
-local CONTENT_W = 848
+local frame -- the main window (declared before the layout code uses it)
+
+-- 3.5.0 layout grid --------------------------------------------------------------
+-- One strict grid for every tab: 24 px side gutter (clears the carved border),
+-- 16 / 12 / 8 px spacing inside. Regions, top to bottom:
+--   title plaque | header (page title + one-line subtitle, profile selector)
+--   content (each tab's page, scroll frames inset inside it)
+--   action bar (help text left, page buttons right)
+--   tab strip (attached to the bottom edge)
+-- Sizes come from the bar-size setting and the frame is scaled down to fit
+-- the screen, so nothing overlaps at Small, Normal, Large or any UI scale.
+local W, H = 960, 760
+local CONTENT_W = 866
+
+local GRID = { gutter = 24, l = 16, m = 12, s = 8, plaque = 60, tabH = 30, barH = 32, btnH = 24 }
+UI.GRID = GRID
 
 function UI.WindowMetrics()
   local size = "large"
@@ -713,18 +725,51 @@ function UI.WindowMetrics()
   elseif NockCharDB and NockCharDB.barSize then
     size = NockCharDB.barSize
   end
+  local m
   if size == "small" then
-    return { w = 760, h = 620, content = 688, body = 14, header = 18, title = 18, pad = 16, attic = 148, bottom = 80, tabH = 32 }
+    m = { w = 800, h = 640, body = 14, header = 18, title = 18, tabFont = 14, small = 12 }
   elseif size == "normal" then
-    return { w = 840, h = 680, content = 768, body = 16, header = 20, title = 20, pad = 16, attic = 152, bottom = 84, tabH = 32 }
+    m = { w = 880, h = 700, body = 16, header = 20, title = 20, tabFont = 15, small = 13 }
+  else
+    m = { w = 960, h = 760, body = 18, header = 22, title = 22, tabFont = 16, small = 14 }
   end
-  return { w = 920, h = 740, content = 848, body = 18, header = 22, title = 22, pad = 16, attic = 160, bottom = 88, tabH = 32 }
+  m.size = size
+  m.pad = GRID.gutter
+  m.tabH = GRID.tabH
+  m.barH = GRID.barH
+  -- Header: plaque, 8, title line, 4, subtitle line, 12.
+  m.headY = GRID.plaque + GRID.s
+  m.attic = m.headY + m.header + 4 + m.body + 6 + GRID.m
+  -- Bottom: border 16, tabs, 8, action bar, 8.
+  m.tabY = 16
+  m.barY = m.tabY + m.tabH + GRID.s
+  m.bottom = m.barY + m.barH + GRID.s
+  -- Scroll child width: content inset minus page inset (4+4), scroll
+  -- left inset 8 and the 26 px scrollbar lane.
+  m.content = m.w - 2 * m.pad - 8 - 8 - 26 - 4
+  return m
 end
+
+local function FitToScreen(f, m)
+  if not (f and f.SetScale) then
+    return
+  end
+  local sw = UIParent and UIParent.GetWidth and tonumber((UIParent:GetWidth())) or 0
+  local sh = UIParent and UIParent.GetHeight and tonumber((UIParent:GetHeight())) or 0
+  local scale = 1
+  if sw > 0 and sh > 0 then
+    scale = math.min(1, (sw * 0.96) / m.w, (sh * 0.94) / m.h)
+  end
+  scale = math.max(0.6, scale)
+  f:SetScale(scale)
+end
+UI.FitToScreen = FitToScreen
 
 function UI.ApplyWindowSize()
   local m = UI.WindowMetrics()
   W, H = m.w, m.h
   CONTENT_W = m.content
+  UI.metrics = m
   if UI.lib then
     UI.lib.CONTENT_W = CONTENT_W
   end
@@ -732,42 +777,88 @@ function UI.ApplyWindowSize()
     return m
   end
   frame:SetSize(m.w, m.h)
+  FitToScreen(frame, m)
   if frame.content then
     frame.content:ClearAllPoints()
     frame.content:SetPoint("TOPLEFT", m.pad, -m.attic)
     frame.content:SetPoint("BOTTOMRIGHT", -m.pad, m.bottom)
   end
-  if frame.head then
-    EnsureFont(frame.head, m.header, "OUTLINE")
-    frame.head:ClearAllPoints()
-    frame.head:SetPoint("TOPLEFT", m.pad + 8, -(72))
-  end
-  if frame.sub then
-    EnsureFont(frame.sub, m.body, "OUTLINE")
-    frame.sub:ClearAllPoints()
-    frame.sub:SetPoint("TOPLEFT", frame.head, "BOTTOMLEFT", 0, -6)
-    frame.sub:SetPoint("RIGHT", frame, "RIGHT", -200, 0)
-    frame.sub:SetWordWrap(true)
-  end
-  if frame.footer then
-    EnsureFont(frame.footer, math.max(13, m.body - 2), "OUTLINE")
-    frame.footer:SetWidth(m.content - 24)
-    frame.footer:SetWordWrap(true)
-    local fy = m.bottom - 16
-    local combat = InCombatLockdown and InCombatLockdown()
-    frame.footer:ClearAllPoints()
-    if combat and frame.lockIcon then
-      frame.footer:SetPoint("BOTTOMLEFT", 36, fy)
-    else
-      frame.footer:SetPoint("BOTTOMLEFT", m.pad + 4, fy)
+  -- Header: profile selector first (it decides how wide the titles can be).
+  local selW = 0
+  if frame.switch then
+    local order = ProfileOrder()
+    local size, gap = (m.size == "small") and 24 or 28, 6
+    local prev
+    for i = #order, 1, -1 do
+      local b = frame.switch[order[i]]
+      if b then
+        b:SetSize(size, size)
+        b:ClearAllPoints()
+        if prev then
+          b:SetPoint("RIGHT", prev, "LEFT", -gap, 0)
+        else
+          b:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -m.pad, -(m.headY + 2))
+        end
+        selW = selW + size + (prev and gap or 0)
+        prev = b
+      end
+    end
+    if frame.switchLabel and prev then
+      EnsureFont(frame.switchLabel, m.small, "")
+      frame.switchLabel:ClearAllPoints()
+      frame.switchLabel:SetPoint("RIGHT", prev, "LEFT", -GRID.s, 0)
+      if frame.switchLabel:IsShown() then
+        selW = selW + GRID.s + (tonumber((frame.switchLabel:GetStringWidth())) or 44)
+      end
+    end
+    if NockCharDB and NockCharDB.view ~= "advanced" then
+      selW = 0
     end
   end
-  if frame.lockIcon then
-    frame.lockIcon:ClearAllPoints()
-    frame.lockIcon:SetPoint("BOTTOMLEFT", m.pad, m.bottom - 18)
+  local rightLimit = m.pad + (selW > 0 and (selW + GRID.l) or 0)
+  if frame.head then
+    EnsureFont(frame.head, m.header, "")
+    frame.head:ClearAllPoints()
+    frame.head:SetPoint("TOPLEFT", frame, "TOPLEFT", m.pad + 4, -m.headY)
+    frame.head:SetPoint("RIGHT", frame, "RIGHT", -rightLimit, 0)
+    frame.head:SetJustifyH("LEFT")
+    frame.head:SetWordWrap(false)
+    if frame.head.SetShadowOffset then
+      frame.head:SetShadowOffset(1, -1)
+      frame.head:SetShadowColor(0, 0, 0, 1)
+    end
+  end
+  if frame.sub then
+    EnsureFont(frame.sub, m.small, "")
+    frame.sub:ClearAllPoints()
+    frame.sub:SetPoint("TOPLEFT", frame.head, "BOTTOMLEFT", 0, -4)
+    frame.sub:SetPoint("RIGHT", frame, "RIGHT", -rightLimit, 0)
+    frame.sub:SetWordWrap(false)
+    if frame.sub.SetMaxLines then
+      frame.sub:SetMaxLines(1)
+    end
+    if frame.sub.SetShadowOffset then
+      frame.sub:SetShadowOffset(1, -1)
+      frame.sub:SetShadowColor(0, 0, 0, 1)
+    end
+  end
+  if frame.headRule then
+    frame.headRule:ClearAllPoints()
+    frame.headRule:SetPoint("TOPLEFT", frame, "TOPLEFT", m.pad, -(m.attic - GRID.s + 2))
+    frame.headRule:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -m.pad, -(m.attic - GRID.s + 2))
+  end
+  -- Action bar: its own row between the content and the tabs.
+  if frame.actionBar then
+    frame.actionBar:ClearAllPoints()
+    frame.actionBar:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", m.pad, m.barY)
+    frame.actionBar:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -m.pad + 6, m.barY)
+    frame.actionBar:SetHeight(m.barH)
+  end
+  if frame.footer then
+    EnsureFont(frame.footer, m.small, "")
   end
   if frame.nockTitlePlate then
-    frame.nockTitlePlate:SetSize(math.min(560, m.w - 200), 64)
+    frame.nockTitlePlate:SetSize(math.min(560, m.w - 240), 64)
     frame.nockTitlePlate:ClearAllPoints()
     frame.nockTitlePlate:SetPoint("TOP", frame, "TOP", 0, 4)
   end
@@ -776,26 +867,57 @@ function UI.ApplyWindowSize()
   end
   if frame.viewButton then
     frame.viewButton:ClearAllPoints()
-    frame.viewButton:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -40, -14)
+    frame.viewButton:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -44, -14)
   end
-  if frame.switch then
-    local prev
-    -- Keep the existing right-to-left chain; just re-hang the last button.
-    for _, b in pairs(frame.switch) do
-      local point, rel, relPoint = b:GetPoint(1)
-      if relPoint == "TOPRIGHT" or (rel == frame and point == "TOPRIGHT") then
-        b:ClearAllPoints()
-        b:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -(m.pad + 6), -76)
-      end
+  for _, sc in ipairs(UI.scrolls or {}) do
+    if sc.child and sc.child.SetWidth then
+      sc.child:SetWidth(CONTENT_W)
+    end
+  end
+  for _, page in pairs(UI.pages) do
+    if page.OnResize then
+      pcall(page.OnResize, page, m)
     end
   end
   if UI.LayoutTabs then
     UI.LayoutTabs()
   end
+  if UI.LayoutActionBar then
+    UI.LayoutActionBar()
+  end
   if frame.nockCarveLayout then
     pcall(frame.nockCarveLayout)
   end
   return m
+end
+
+-- Help text on the left, the visible page's buttons right-aligned. The text
+-- gets whatever width the buttons leave and is cut to one line.
+function UI.LayoutActionBar()
+  local bar = frame and frame.actionBar
+  if not bar then
+    return
+  end
+  local used = 0
+  local page = UI.pages[UI.tab or ""]
+  for _, b in ipairs(page and page.buttons or {}) do
+    if b:IsShown() then
+      used = used + (tonumber((b:GetWidth())) or 100) + GRID.s
+    end
+  end
+  local w = tonumber((bar:GetWidth())) or (W - 2 * GRID.gutter)
+  if frame.footer then
+    local x = 4
+    if frame.lockIcon and frame.lockIcon:IsShown() then
+      frame.lockIcon:ClearAllPoints()
+      frame.lockIcon:SetPoint("LEFT", bar, "LEFT", 4, 0)
+      x = 4 + 14 + 6
+    end
+    frame.footer:ClearAllPoints()
+    frame.footer:SetPoint("LEFT", bar, "LEFT", x, 0)
+    frame.footer:SetWidth(math.max(80, w - used - x - GRID.l))
+    frame.footer:SetWordWrap(false)
+  end
 end
 
 function UI.RestyleChrome()
@@ -840,8 +962,6 @@ for i, t in ipairs(TAB_INFO) do
   TAB_INDEX[t.key] = i
 end
 local TAB_ALIAS = { keys = "profiles", guide = "manual", notes = "manual", plan = "talents", myrotation = "myrot", mine = "myrot", more = "advanced", options = "options", settings = "options", tools = "kit", fieldkit = "kit" }
-
-local frame
 
 local function SavePosition(f)
   local point, _, relPoint, x, y = f:GetPoint(1)
@@ -913,12 +1033,26 @@ local function MakeScroll(parent, top, bottom)
   scrollCount = scrollCount + 1
   local name = "NockScroll" .. scrollCount
   local scroll = TryCreate("ScrollFrame", name, parent, "ScrollFrameTemplate", "UIPanelScrollFrameTemplate")
-  scroll:SetPoint("TOPLEFT", 6, top or -6)
-  scroll:SetPoint("BOTTOMRIGHT", -24, bottom or 6)
+  scroll:SetPoint("TOPLEFT", 8, top or -8)
+  scroll:SetPoint("BOTTOMRIGHT", -30, bottom or 8)
+  -- 3.5.0: the scrollbar lives in a dark lane inside the content area.
+  local lane = parent:CreateTexture(nil, "BACKGROUND")
+  lane:SetPoint("TOPLEFT", scroll, "TOPRIGHT", 6, 0)
+  lane:SetPoint("BOTTOMRIGHT", scroll, "BOTTOMRIGHT", 24, 0)
+  lane:SetColorTexture(0, 0, 0, 0.28)
+  scroll.lane = lane
+  local bar = Field(scroll, "ScrollBar") or _G[name .. "ScrollBar"]
+  if bar and bar.ClearAllPoints then
+    bar:ClearAllPoints()
+    bar:SetPoint("TOPLEFT", scroll, "TOPRIGHT", 8, -16)
+    bar:SetPoint("BOTTOMLEFT", scroll, "BOTTOMRIGHT", 8, 16)
+  end
   local child = CreateFrame("Frame", nil, scroll)
   child:SetSize(CONTENT_W, 20)
   scroll:SetScrollChild(child)
   scroll.child = child
+  UI.scrolls = UI.scrolls or {}
+  UI.scrolls[#UI.scrolls + 1] = scroll
   return scroll, child
 end
 
@@ -1105,50 +1239,70 @@ local function CreateMain()
     f.switchLabel = switchLabel
   end
 
-  -- Footer strip in the button bar: a short note, or the combat warning.
-  local footer = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-  EnsureFont(footer, 14, "OUTLINE")
-  footer:SetPoint("BOTTOMLEFT", 24, 72)
+  -- 3.5.0: a dedicated action-bar row (help text + page buttons) above the tabs.
+  local actionBar = CreateFrame("Frame", nil, f)
+  actionBar:SetHeight(GRID.barH)
+  actionBar:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", GRID.gutter, 54)
+  actionBar:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -GRID.gutter + 6, 54)
+  f.actionBar = actionBar
+  local headRule = f:CreateTexture(nil, "BORDER")
+  headRule:SetHeight(1)
+  f.headRule = headRule
+
+  local footer = actionBar:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+  EnsureFont(footer, 14, "")
+  footer:SetPoint("LEFT", actionBar, "LEFT", 4, 0)
   footer:SetJustifyH("LEFT")
   footer:SetJustifyV("BOTTOM")
   footer:SetWordWrap(true)
   footer:SetWidth(CONTENT_W - 24)
   footer:SetTextColor(0.72, 0.76, 0.70)
   f.footer = footer
-  local lock = f:CreateTexture(nil, "OVERLAY")
+  local lock = actionBar:CreateTexture(nil, "OVERLAY")
   lock:SetSize(14, 14)
-  lock:SetPoint("BOTTOMLEFT", 20, 72)
+  lock:SetPoint("LEFT", actionBar, "LEFT", 4, 0)
   SetAtlasOr(lock, STATE_ART.locked.atlas, STATE_ART.locked.file)
   lock:Hide()
   f.lockIcon = lock
 
-  -- Bottom tabs sit fully inside the frame, above the carved edge.
+  -- 3.5.0: bottom tabs attached to the frame's lower edge, sized from their
+  -- labels and fitted to the frame (UI.LayoutTabs).
   for i, info in ipairs(TAB_INFO) do
     local tab = CreateFrame("Button", "NockFrameTab" .. i, f)
     tab:SetID(i)
-    tab:SetHeight(32)
+    tab.nockKey = info.key
+    tab:SetHeight(GRID.tabH)
     local bg = tab:CreateTexture(nil, "BACKGROUND")
     bg:SetAllPoints()
-    bg:SetColorTexture(0.10, 0.08, 0.05, 0.85)
     tab.bg = bg
+    tab.edges = {}
+    for j, spec in ipairs({ { "BOTTOMLEFT", "BOTTOMRIGHT", true }, { "TOPLEFT", "BOTTOMLEFT", false }, { "TOPRIGHT", "BOTTOMRIGHT", false } }) do
+      local e = tab:CreateTexture(nil, "BORDER")
+      e:SetPoint(spec[1])
+      e:SetPoint(spec[2])
+      if spec[3] then e:SetHeight(1) else e:SetWidth(1) end
+      tab.edges[j] = e
+    end
     local ul = tab:CreateTexture(nil, "OVERLAY")
-    ul:SetHeight(3)
-    ul:SetPoint("BOTTOMLEFT", 6, 1)
-    ul:SetPoint("BOTTOMRIGHT", -6, 1)
-    ul:SetColorTexture(0.92, 0.78, 0.32, 1)
+    ul:SetHeight(2)
+    ul:SetPoint("TOPLEFT", 1, 0)
+    ul:SetPoint("TOPRIGHT", -1, 0)
     tab.underline = ul
+    local hl = tab:CreateTexture(nil, "HIGHLIGHT")
+    hl:SetAllPoints()
+    hl:SetColorTexture(1, 1, 1, 0.05)
     local fs = tab:CreateFontString(nil, "OVERLAY")
-    EnsureFont(fs, 16, "OUTLINE")
-    fs:SetPoint("CENTER", 0, 1)
+    EnsureFont(fs, 16, "")
+    fs:SetPoint("LEFT", 6, 0)
+    fs:SetPoint("RIGHT", -6, 0)
+    fs:SetWordWrap(false)
+    if fs.SetShadowOffset then
+      fs:SetShadowOffset(1, -1)
+      fs:SetShadowColor(0, 0, 0, 1)
+    end
     fs:SetText(info.label)
     tab.label = fs
-    local tw = math.max(88, (fs.GetStringWidth and fs:GetStringWidth() or 80) + 24)
-    tab:SetWidth(tw)
-    if i == 1 then
-      tab:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 20, 28)
-    else
-      tab:SetPoint("BOTTOMLEFT", UI.tabs[i - 1], "BOTTOMRIGHT", 8, 0)
-    end
+    tab:SetWidth(100)
     tab:SetScript("OnClick", function()
       Sound("IG_CHARACTER_INFO_TAB")
       UI.SelectTab(info.key)
@@ -1243,14 +1397,11 @@ function UI.Refresh()
   if InCombat() then
     frame.footer:SetText("|cffff4040In combat:|r changes unlock when combat ends.")
     frame.lockIcon:Show()
-    frame.footer:ClearAllPoints()
-    frame.footer:SetPoint("BOTTOMLEFT", 36, 72)
   else
     frame.footer:SetText(UI.pages[tab] and UI.pages[tab].footer or "")
     frame.lockIcon:Hide()
-    frame.footer:ClearAllPoints()
-    frame.footer:SetPoint("BOTTOMLEFT", 24, 72)
   end
+  UI.LayoutActionBar()
   if RefreshPage[tab] then
     RefreshPage[tab](UI.pages[tab], p)
   end
@@ -1286,13 +1437,19 @@ function UI.SelectTab(key)
   UI.Refresh()
 end
 
--- Shows the tabs for the current view and chains them left to right.
+-- Shows the tabs for the current view and fits them to the frame: natural
+-- widths if they fit, then a smaller label size, then equal widths.
 function UI.LayoutTabs()
   if not frame then
     return
   end
+  local m = UI.metrics or UI.WindowMetrics()
   local simple = IsSimple()
-  local prev
+  local visual = UI.tab or "myrot"
+  if simple and not SIMPLE_TABS[visual] then
+    visual = "advanced"
+  end
+  local shown = {}
   for i, info in ipairs(TAB_INFO) do
     local tab = UI.tabs[i]
     local show
@@ -1300,38 +1457,57 @@ function UI.LayoutTabs()
       show = SIMPLE_TABS[info.key] and true or false
     else
       show = info.key ~= "advanced"
-      -- Eight tabs do not fit the small window; Tools stays reachable by /nock kit.
-      if info.key == "kit" and frame.GetWidth and (frame:GetWidth() or 0) < 830 then
-        show = false
-      end
     end
     tab:SetShown(show)
     if show then
-      tab:ClearAllPoints()
-      if prev then
-        tab:SetPoint("BOTTOMLEFT", prev, "BOTTOMRIGHT", 8, 0)
-      else
-        tab:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 20, 28)
-      end
-      prev = tab
+      shown[#shown + 1] = tab
     end
-    if tab.label and tab.underline and tab.bg then
-      local on = (UI.tab == info.key) or (IsSimple() and info.key == "advanced" and not SIMPLE_TABS[UI.tab or ""] and UI.tab ~= "options" and UI.tab ~= "myrot" and UI.tab ~= "talents")
-      -- Selected tab: bright label + gold underline.
-      local visual = UI.tab or "myrot"
-      if IsSimple() and not SIMPLE_TABS[visual] then
-        visual = "advanced"
-      end
-      on = (info.key == visual)
-      if on then
-        tab.label:SetTextColor(0.98, 0.92, 0.62)
-        tab.underline:Show()
-        tab.bg:SetColorTexture(0.22, 0.16, 0.08, 0.95)
-      else
-        tab.label:SetTextColor(0.78, 0.80, 0.74)
-        tab.underline:Hide()
-        tab.bg:SetColorTexture(0.10, 0.08, 0.05, 0.70)
-      end
+  end
+  local avail = (m.w or W) - 2 * GRID.gutter
+  local gap = 4
+  local function natural(font)
+    local sum = 0
+    for _, tab in ipairs(shown) do
+      EnsureFont(tab.label, font, "")
+      tab.nw = math.max(72, (tonumber((tab.label:GetStringWidth())) or 70) + 2 * GRID.l)
+      sum = sum + tab.nw
+    end
+    return sum + gap * (#shown - 1)
+  end
+  local font = m.tabFont or 16
+  local total = natural(font)
+  while total > avail and font > 12 do
+    font = font - 1
+    total = natural(font)
+  end
+  local equal = total > avail and math.floor((avail - gap * (#shown - 1)) / math.max(1, #shown)) or nil
+  local th = _G.NockTheme
+  local c = th and th.color or {}
+  local trim = c.trim or { 0.50, 0.66, 0.60 }
+  local wood = c.wood or { 0.07, 0.12, 0.10 }
+  local accent = c.emerald or { 0.25, 0.89, 0.60 }
+  local prev
+  for _, tab in ipairs(shown) do
+    tab:SetSize(equal or tab.nw, GRID.tabH)
+    tab:ClearAllPoints()
+    if prev then
+      tab:SetPoint("BOTTOMLEFT", prev, "BOTTOMRIGHT", gap, 0)
+    else
+      tab:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", GRID.gutter, m.tabY or 16)
+    end
+    prev = tab
+    local key = tab.nockKey
+    local on = key == visual
+    tab.bg:SetColorTexture(wood[1] + (on and 0.08 or 0), wood[2] + (on and 0.08 or 0), wood[3] + (on and 0.06 or 0), on and 1 or 0.85)
+    for _, e in ipairs(tab.edges) do
+      e:SetColorTexture(trim[1], trim[2], trim[3], on and 0.8 or 0.4)
+    end
+    tab.underline:SetColorTexture(accent[1], accent[2], accent[3], 1)
+    tab.underline:SetShown(on)
+    if on then
+      tab.label:SetTextColor(0.98, 0.92, 0.62)
+    else
+      tab.label:SetTextColor(0.74, 0.78, 0.72)
     end
   end
   for _, b in pairs(frame.switch or {}) do
@@ -1342,6 +1518,9 @@ function UI.LayoutTabs()
   end
   if frame.viewButton then
     frame.viewButton.icon:SetDesaturated(simple)
+  end
+  if frame.headRule then
+    frame.headRule:SetColorTexture(trim[1], trim[2], trim[3], 0.35)
   end
 end
 
@@ -1358,7 +1537,9 @@ end
 
 -- Bottom-bar buttons belong to a page and only show with it.
 local function BarButton(page, text, width, opts)
-  local b = PanelButton(frame, text, width, opts)
+  opts = opts or {}
+  opts.height = opts.height or GRID.btnH
+  local b = PanelButton(frame.actionBar or frame, text, width, opts)
   page.buttons = page.buttons or {}
   page.buttons[#page.buttons + 1] = b
   b:Hide()
@@ -1644,7 +1825,7 @@ BuildProfilesPage = function(page)
       end)
     end,
   })
-  restore:SetPoint("RIGHT", apply, "LEFT", -4, 0)
+  restore:SetPoint("RIGHT", apply, "LEFT", -8, 0)
 
   local detect = BarButton(page, "Detect", 80, {
     tip = "Picks the profile that matches your talent points and level. It only selects; it doesn't apply.",
@@ -1660,7 +1841,7 @@ BuildProfilesPage = function(page)
       UI.Refresh()
     end,
   })
-  detect:SetPoint("RIGHT", restore, "LEFT", -4, 0)
+  detect:SetPoint("RIGHT", restore, "LEFT", -8, 0)
   return page
 end
 
@@ -1949,7 +2130,7 @@ BuildTalentsPage = function(page)
       end)
     end,
   })
-  learnAll:SetPoint("RIGHT", learnNext, "LEFT", -4, 0)
+  learnAll:SetPoint("RIGHT", learnNext, "LEFT", -8, 0)
   local open = BarButton(page, "Open Talents", 120, {
     lock = true,
     tip = "Opens the Forever talent window (N).",
@@ -1959,7 +2140,7 @@ BuildTalentsPage = function(page)
       end
     end,
   })
-  open:SetPoint("RIGHT", learnAll, "LEFT", -4, 0)
+  open:SetPoint("RIGHT", learnAll, "LEFT", -8, 0)
   return page
 end
 

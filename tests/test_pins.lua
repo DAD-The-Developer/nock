@@ -202,7 +202,7 @@ CVARS.rotateMinimap = "0"; FACING = 0
 PLAYER_X, PLAYER_Y = 0.10, 0.10
 tick()
 local edge = shownMini()
-check(#edge > 0 and #edge <= 4, "out of range: one edge pin per kind (" .. #edge .. ")")
+check(#edge > 0 and #edge <= 6, "out of range: one edge pin per rim kind (" .. #edge .. ")")
 for _, f in ipairs(edge) do
   local _, _, _, x, y = f:GetPoint()
   local d = math.sqrt(x * x + y * y)

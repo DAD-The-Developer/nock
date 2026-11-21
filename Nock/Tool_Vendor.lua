@@ -50,17 +50,23 @@ local function Use(bag, slot)
 end
 
 local function Summary(repaired)
-  local parts = {}
+  local title, sub
   if soldCount > 0 then
-    parts[#parts + 1] = string.format("Sold %d junk item%s for %s.", soldCount, soldCount == 1 and "" or "s", Core.Money(sold))
+    title = string.format("Sold %d junk for %s", soldCount, Core.Money(sold))
   end
   if repaired and repaired > 0 then
-    parts[#parts + 1] = string.format("Repaired for %s.", Core.Money(repaired))
+    local r = "Repaired for " .. Core.Money(repaired)
+    if title then sub = r else title = r end
   elseif repaired == false then
-    parts[#parts + 1] = "Not enough gold to repair everything."
+    local r = "Not enough gold to repair"
+    if title then sub = r else title = r end
   end
-  if #parts > 0 then
-    Core.Say(table.concat(parts, " "))
+  if title then
+    M.lastSummary = title .. (sub and ("  ·  " .. sub) or "")
+    -- On screen only; the alert switch off falls back to one chat line.
+    if not Nock.Alerts:Fire("vendor.summary", { title = title, sub = sub or "" }) then
+      Core.Say(M.lastSummary)
+    end
   end
 end
 
@@ -109,7 +115,7 @@ end
 Core.On("MERCHANT_SHOW", "vendor", function()
   atVendor = true
   if IsShiftKeyDown and IsShiftKeyDown() then
-    Core.Say("Shift held: no auto sell or repair this time.")
+    -- Shift held: skip this visit quietly.
     return
   end
   sold, soldCount = 0, 0

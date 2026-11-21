@@ -14,8 +14,8 @@ TESTS = Path("/workspace/nock/tests")
 toc = (ROOT / "Nock.toc").read_text()
 if "## Interface: 16001" not in toc:
     sys.exit("TOC Interface is not 16001")
-if "## Version: 3.4.1" not in toc:
-    sys.exit("TOC Version is not 3.4.1")
+if "## Version: 3.5.0" not in toc:
+    sys.exit("TOC Version is not 3.5.0")
 
 lua_files = [
     line.strip()
@@ -84,8 +84,8 @@ def fail(msg):
 nock = g.Nock
 if not nock:
     fail("Nock global missing after load")
-if nock.Version != "3.4.1":
-    fail("Nock.Version is %r, expected 3.4.1" % (nock.Version,))
+if nock.Version != "3.5.0":
+    fail("Nock.Version is %r, expected 3.5.0" % (nock.Version,))
 
 theme = g.NockTheme
 if not theme:
@@ -123,6 +123,15 @@ if errs:
     fail("hunter tool errors on first login")
 if not g.NockFeedButton:
     fail("NockFeedButton (feed pet keybind) missing")
+# 3.5.0 alert manager
+alerts = nock.Alerts
+if not alerts:
+    fail("Nock.Alerts (3.5.0 alert manager) missing")
+ndefs = lua.eval("(function() local n = 0 for _ in pairs(Nock.Alerts.defs) do n = n + 1 end return n end)()")
+if ndefs < 20:
+    fail("expected 20+ registered alerts, got %r" % (ndefs,))
+if not g.NockAlertStack:
+    fail("alert stack frame not created on login")
 
 # Account and character tables must not contain a pre-baked profile or position
 # from someone else's character.

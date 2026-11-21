@@ -101,7 +101,9 @@ local function Build(page)
       cb.label:SetWordWrap(true)
     end
     page.checks[#page.checks + 1] = cb
-    child._y = child._y - 40
+    -- 3.5.0: rows grow with their label so wrapped text never overlaps.
+    local lh = cb.label and tonumber((cb.label:GetStringHeight())) or 0
+    child._y = child._y - math.max(36, lh + 16)
     return cb
   end
 
@@ -230,7 +232,7 @@ local function Build(page)
   child._y = child._y - 40
 
   local P = Nock.Pins
-  add("Hunter map pins", "Hunter trainers, pet trainers, stable masters and ammo vendors on your minimap and world map. The nearest one of each kind sits on the minimap edge when it is out of range. Also /nock pins or the keybind.",
+  add("Hunter map pins", "Hunter trainers, pet trainers, stable masters, ammo, bow and gun, quiver and pet food vendors, hunter quests and (optional) flight masters on your minimap and world map, city and zone maps alike. Hover a vendor to see what it sells, with the best item for your level. Also /nock pins or the keybind.",
     function() return P and P.IsOn() end, function(on) if P then P.SetOn(on) end end)
   add("   On the minimap", "Pins on the minimap.",
     function() return P and P.MinimapOn() end, function(on) if P then P.SetMinimap(on) end end)
@@ -243,8 +245,94 @@ local function Build(page)
   end
   add("   Other faction too", "Also show the other faction's NPCs, greyed out. Off by default.",
     function() return P and P.HostileOn() end, function(on) if P then P.SetHostile(on) end end)
+  if P and P.PetFoodAll then
+    add("   Every pet food vendor", "Off: only vendors selling food your current pet eats (nothing shows without a pet). On: every pet food vendor. The tooltip always marks what your pet eats.",
+      function() return P.PetFoodAll() end,
+      function(on) NockCharDB.pins = NockCharDB.pins or {}; NockCharDB.pins.petfoodAll = on and true or nil; P.Refresh() end)
+    local lab = child:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    EnsureFont(lab, m.body or 16, "OUTLINE")
+    lab:SetPoint("TOPLEFT", 40, child._y)
+    lab:SetText("Minimap pins per kind")
+    lab:SetTextColor(0.95, 0.88, 0.55)
+    local seg = L.Segmented(child, { { "Nearest 1", 1 }, { "Nearest 3", 3 }, { "All", 99 } },
+      function() return P.MiniPerKind() end,
+      function(v) NockCharDB.pins = NockCharDB.pins or {}; NockCharDB.pins.perKind = v; P.Refresh() end,
+      300, "How many pins of each kind the minimap shows in range. Pins that would overlap fold into one; hover it to see them all.")
+    seg:SetPoint("TOPLEFT", 280, child._y + 4)
+    page.segs = page.segs or {}
+    page.segs[#page.segs + 1] = seg
+    child._y = child._y - 48
+  end
   add("Quiver counter", "A quiver (or ammo pouch in Gunsmith) with your ammo count in big numbers. Green is well stocked, yellow is half, red means buy more. Hold Shift and drag to move it. Also /nock quiver.",
     function() return Nock.Quiver and Nock.Quiver.IsOn() end, function(on) if Nock.Quiver then Nock.Quiver.SetOn(on) end end)
+
+  -- 3.5.0 alerts: global controls, then a switch per category and per alert,
+  -- generated from the alert registry (Data_Alerts.lua).
+  local A = Nock.Alerts
+  if A then
+    child._y = child._y - 8
+    Section(child, "Alerts", 8, child._y, cw - 16)
+    child._y = child._y - 40
+    local function SegRow(label, items, get, set, tip)
+      local lab = child:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+      EnsureFont(lab, m.body or 16, "OUTLINE")
+      lab:SetPoint("TOPLEFT", 12, child._y)
+      lab:SetText(label)
+      lab:SetTextColor(0.95, 0.88, 0.55)
+      local seg = L.Segmented(child, items, get, set, 300, tip)
+      seg:SetPoint("TOPLEFT", 200, child._y + 4)
+      page.segs = page.segs or {}
+      page.segs[#page.segs + 1] = seg
+      child._y = child._y - 48
+      return seg
+    end
+    SegRow("Alert size", { { "Small", 0.85 }, { "Normal", 1 }, { "Large", 1.15 } },
+      function()
+        local v = A:Scale()
+        if v < 0.93 then return 0.85 elseif v > 1.07 then return 1.15 end
+        return 1
+      end,
+      function(v) A:SetScale(v); A:Test() end,
+      "How big the alert toasts are, on top of the bar size.")
+    SegRow("On screen at once", { { "One", 1 }, { "Two", 2 } },
+      function() return A:MaxVisible() end, function(v) A:SetMax(v) end,
+      "More alerts wait their turn in a queue; critical ones always go first.")
+    add("Quiet mode", "Only critical alerts (Feign Death resisted, Wing Clip fell off, dead zone in PvP). No sound. Also /nock alerts quiet.",
+      function() return A:IsQuiet() end, function(on) A:SetQuiet(on) end)
+    add("Sound on critical alerts", "One short warning sound, only for critical alerts.",
+      function() return A:SoundOn() end, function(on) A:SetSound(on) end)
+    add("Soft edge flashes", "A brief tint at the screen edge for a resisted Feign Death or the dead zone.",
+      function() return not (NockCharDB.alerts and NockCharDB.alerts.flash == false) end,
+      function(on)
+        NockCharDB.alerts = NockCharDB.alerts or {}
+        if on then NockCharDB.alerts.flash = nil else NockCharDB.alerts.flash = false end
+      end)
+    local test = L.PanelButton(child, "Test alerts", 160, {
+      tip = "Shows a critical, a warning and an info alert where they will appear. Also /nock alerts test.",
+      onClick = function() A:Test() end,
+    })
+    test:SetHeight(26)
+    test:SetPoint("TOPLEFT", 12, child._y)
+    child._y = child._y - 40
+    for _, cat in ipairs(A.catOrder or {}) do
+      local ids = {}
+      for _, id in ipairs(A.categories[cat] or {}) do
+        if not A.defs[id].hidden then
+          ids[#ids + 1] = id
+        end
+      end
+      if #ids > 0 then
+        add((A.CATEGORY_LABELS and A.CATEGORY_LABELS[cat]) or cat, "Every alert in this group. /nock alerts " .. cat .. " on | off",
+          function() return A:CategoryOn(cat) end, function(on) A:SetCategory(cat, on) end)
+        for _, id in ipairs(ids) do
+          local d = A.defs[id]
+          local pr = d.priority == "critical" and "|cffe0605acritical|r" or (d.priority == "warning" and "|cfff2b84awarning|r" or "|cff7fbfefinfo|r")
+          add("      " .. (d.label or d.title or id), pr .. "  ·  /nock alerts " .. id .. " on | off",
+            function() return A:CategoryOn(cat) and A:AlertOn(id) end, function(on) A:SetAlert(id, on) end)
+        end
+      end
+    end
+  end
 
   -- 3.4.0 hunter tools: one switch per tool, then its own settings.
   local Core = Nock.Core
@@ -254,7 +342,7 @@ local function Build(page)
     child._y = child._y - 40
     add("Unlock frames (move them)", "Outlines every movable Nock frame — tracker, quiver, threat meter, range and PvP readouts, alerts — so you can drag them. Turn off to lock. Locks itself in combat and on login. Also /nock unlock, /nock lock, /nock reset positions, or the keybind.",
       function() return Core.Unlocked and Core.Unlocked() end, function(on) if Core.SetUnlocked then Core.SetUnlocked(on) end end)
-    add("Mute hunter tool alerts", "Silences the big centre alerts and edge flashes from every hunter tool. The readouts stay. Also /nock tools mute or the keybind.",
+    add("Mute all hunter tool alerts", "Silences every alert toast and edge flash from the hunter tools. The readouts stay. Also /nock tools mute or the keybind.",
       function() return Core.Muted() end, function(on) if Core.Muted() ~= (on and true or false) then Core.Slash("mute") end end)
     add("Endgame mode at level 60", "At 60 the guide and tracker switch to raid-night checklists and gold per hour, and leveling-only nudges step aside. Off keeps leveling mode. /nock tools endgame auto | on | off.",
       function() return Core.EndgameSetting() ~= "off" end,
@@ -366,6 +454,11 @@ L.RefreshPage.options = function(page)
   end
   if page.styleSeg and page.styleSeg.Sync then
     page.styleSeg:Sync()
+  end
+  for _, seg in ipairs(page.segs or {}) do
+    if seg.Sync then
+      seg:Sync()
+    end
   end
   if page.notesBtn then
     page.notesBtn:SetText((MR and MR.IsCardShown()) and "Hide Hunting Notes" or "Show Hunting Notes")

@@ -156,10 +156,43 @@ local frame
 local function Font(fs, size)
   local T = _G.NockTheme
   if T and T.EnsureFont then
-    T.EnsureFont(fs, size, "THICKOUTLINE")
+    T.EnsureFont(fs, size, "")
   else
-    pcall(fs.SetFont, fs, "Fonts\\FRIZQT__.TTF", size, "THICKOUTLINE")
+    pcall(fs.SetFont, fs, "Fonts\\FRIZQT__.TTF", size, "")
   end
+  if fs.SetShadowOffset then
+    fs:SetShadowOffset(1, -1)
+    fs:SetShadowColor(0, 0, 0, 0.95)
+  end
+end
+
+-- 3.5.0: a compact themed plate (same wood/gunmetal as the alert toasts).
+local function Plate(f)
+  local A = Nock.Alerts
+  local th = A and A:Theme() or {}
+  local bg = th.bgTop or { 0.07, 0.06, 0.05 }
+  local trim = th.trim or { 0.72, 0.64, 0.45 }
+  local acc = th.accent and th.accent.critical or { 0.85, 0.3, 0.25 }
+  f.bg:SetColorTexture(bg[1], bg[2], bg[3], 0.82)
+  for _, e in ipairs(f.edges) do
+    e:SetColorTexture(trim[1], trim[2], trim[3], 0.6)
+  end
+  f.accent:SetColorTexture(acc[1], acc[2], acc[3], 0.9)
+end
+
+local function Fit(f)
+  local w, h = 0, 12
+  for _, fs in ipairs(f.lines) do
+    local t = fs:GetText()
+    if t and t ~= "" then
+      w = math.max(w, tonumber((fs:GetStringWidth())) or 200)
+      h = h + (tonumber((fs:GetStringHeight())) or 15) + 4
+      fs:Show()
+    else
+      fs:Hide()
+    end
+  end
+  f:SetSize(math.floor(math.max(220, w + 30) + 0.5), math.floor(h + 6))
 end
 
 local function Make()
@@ -172,16 +205,32 @@ local function Make()
   if f.EnableMouse then
     f:EnableMouse(false)
   end
+  f.bg = f:CreateTexture(nil, "BACKGROUND")
+  f.bg:SetPoint("TOPLEFT", 1, -1)
+  f.bg:SetPoint("BOTTOMRIGHT", -1, 1)
+  f.edges = {}
+  for i, spec in ipairs({ { "TOPLEFT", "TOPRIGHT", true }, { "BOTTOMLEFT", "BOTTOMRIGHT", true }, { "TOPLEFT", "BOTTOMLEFT", false }, { "TOPRIGHT", "BOTTOMRIGHT", false } }) do
+    local e = f:CreateTexture(nil, "BORDER")
+    e:SetPoint(spec[1])
+    e:SetPoint(spec[2])
+    if spec[3] then e:SetHeight(1) else e:SetWidth(1) end
+    f.edges[i] = e
+  end
+  f.accent = f:CreateTexture(nil, "ARTWORK")
+  f.accent:SetPoint("TOPLEFT", 1, -1)
+  f.accent:SetPoint("BOTTOMLEFT", 1, 1)
+  f.accent:SetWidth(3)
   f.lines = {}
-  local sizes = { 22, 16, 16, 15 }
+  local sizes = { 16, 13, 13, 12 }
   local prev
   for i = 1, 4 do
     local fs = f:CreateFontString(nil, "OVERLAY")
     Font(fs, sizes[i])
+    fs:SetJustifyH("LEFT")
     if prev then
-      fs:SetPoint("TOP", prev, "BOTTOM", 0, -4)
+      fs:SetPoint("TOPLEFT", prev, "BOTTOMLEFT", 0, -4)
     else
-      fs:SetPoint("TOP", 0, 0)
+      fs:SetPoint("TOPLEFT", 16, -9)
     end
     f.lines[i] = fs
     prev = fs
@@ -193,10 +242,12 @@ local function Make()
     Core.MakeMovable(f, "pvp", "PvP readout", { "CENTER", "CENTER", 0, 210 }, {
       preview = function(on)
         if on then
-          f.lines[1]:SetText("ENEMY ROGUE  ·  melee  ·  Scorpid Sting")
-          f.lines[2]:SetText("Not slowed: Concussive Shot / Wing Clip, step back")
-          f.lines[3]:SetText("Evasion: dodging — step back and shoot")
+          Plate(f)
+          f.lines[1]:SetText("Rogue  ·  melee  ·  Scorpid Sting")
+          f.lines[2]:SetText("Not slowed — Concussive Shot or Wing Clip, step back")
+          f.lines[3]:SetText("Evasion — step back and shoot")
           f.lines[4]:SetText("Conc   Scatter   Freeze   Frost   Clip   Feign")
+          Fit(f)
           f:Show()
         else
           f:Hide()
@@ -231,7 +282,8 @@ function M.Update()
   end
   local role, sting = M.Advice(classFile, function(n) return Core.Knows(n) end)
   local cc = classFile and _G.RAID_CLASS_COLORS and _G.RAID_CLASS_COLORS[classFile]
-  f.lines[1]:SetText(string.format("ENEMY %s%s%s", type(name) == "string" and not Core.IsSecret(name) and name:upper() or "PLAYER",
+  Plate(f)
+  f.lines[1]:SetText(string.format("%s%s%s", type(name) == "string" and not Core.IsSecret(name) and name or "Enemy player",
     role and ("  ·  " .. role) or "", sting and ("  ·  " .. sting) or ""))
   if cc then
     f.lines[1]:SetTextColor(cc.r or 1, cc.g or 1, cc.b or 1)
@@ -252,7 +304,7 @@ function M.Update()
     if slow then
       slowText = string.format("|cff40e39aSlowed: %s%s|r", slow, left < 90 and string.format(" %ds", math.ceil(left)) or "")
     elseif slow == false then
-      slowText = "|cffffcc33Not slowed: Concussive Shot / Wing Clip, step back|r"
+      slowText = "|cffffcc33Not slowed — Concussive Shot or Wing Clip, step back|r"
     end
   end
   f.lines[2]:SetText(slowText or "")
@@ -262,7 +314,7 @@ function M.Update()
     for buff, advice in pairs(D().PvPBuffs or {}) do
       local left = AuraLeft(buff, "HELPFUL")
       if left and left > 0 then
-        buffText = string.format("|cffff7755%s|r: %s", buff, advice)
+        buffText = string.format("|cffff7755%s|r — %s", buff, advice)
         break
       end
     end
@@ -271,6 +323,7 @@ function M.Update()
   f.lines[3]:SetTextColor(0.95, 0.9, 0.8)
   f.lines[4]:SetText(M.ReadyLine())
   f.lines[4]:SetTextColor(0.8, 0.85, 0.8)
+  Fit(f)
   f:Show()
 end
 
@@ -287,8 +340,7 @@ Core.On("UNIT_SPELLCAST_SUCCEEDED", "pvp", function(_, unit, _, spellID)
   end
   local n = C_Spell and C_Spell.GetSpellName and Core.Call(C_Spell.GetSpellName, spellID)
   if type(n) == "string" and (D().PvPTrinkets or {})[n] then
-    Core.Alert("Trinket: " .. n, { color = "warn", key = "pvptrinket", priority = 2,
-      sub = "They broke free. Re-apply: Concussive, Scatter, trap.", sound = "soft", duration = 3 })
+    Nock.Alerts:Fire("pvp.trinket", { name = n })
   end
 end)
 
@@ -304,7 +356,7 @@ end
 
 function M:OnProfile(what)
   if what == "context" and Core.PvPMode() and Core.Throttle("pvp:enter", 30) then
-    Core.Say(string.format("PvP mode%s: PvE nags off, dead zone and Wing Clip cues up. /nock pvp guide", Core.P.arena and " (arena)" or ""))
+    Nock.Alerts:Fire("pvp.enter", { arena = Core.P.arena and " — arena" or "" })
   end
 end
 

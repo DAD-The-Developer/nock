@@ -37,6 +37,9 @@
   <Binding name="NOCK_UNLOCK">
     Nock_ToggleUnlock()
   </Binding>
+  <Binding name="NOCK_TEST_ALERTS">
+    if Nock_TestAlerts then Nock_TestAlerts() end
+  </Binding>
   <Binding name="NOCK_MUTE_TOOLS">
     Nock_MuteTools()
   </Binding>

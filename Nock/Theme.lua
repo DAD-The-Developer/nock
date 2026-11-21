@@ -633,6 +633,7 @@ BINDING_NAME_NOCK_TRAIN = "What is waiting at the trainer"
 BINDING_NAME_NOCK_TAME_PINS = "Show or hide rare tameable beast pins"
 BINDING_NAME_NOCK_TRACKER = "Show or hide the kill / XP tracker"
 BINDING_NAME_NOCK_UNLOCK = "Unlock or lock all Nock frames (move them)"
+BINDING_NAME_NOCK_TEST_ALERTS = "Show test alerts"
 BINDING_NAME_NOCK_MUTE_TOOLS = "Mute or unmute hunter tool alerts"
 
 function _G.Nock_ToggleNotes()

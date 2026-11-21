@@ -2,6 +2,31 @@
 
 All notable changes to Nock from 3.0.11 onward. The addon folder's `Nock/README.txt` also has older notes.
 
+## 3.5.0
+
+Pro polish across the board: one notification system, a rebuilt Nock window, and complete hunter map pins.
+
+**Alerts**
+- One alert manager for every reminder: a single movable stack (`/nock unlock`), at most two toasts on screen (one if you prefer), critical first and the rest queued. Duplicates refresh instead of stacking; each alert has its own cooldown; toasts fade and slide in, and leave on their own (critical 4 s, warning 5 s, info 6 s).
+- Clean toasts styled to match your Nock style: Emerald (dark wood, thin silver-gold trim, emerald accent) or Gunsmith (gunmetal, brass). Real spell or item icon on the left, a short title, one line of detail and a thin red / amber / emerald accent. No more all-caps shouting or walls of text.
+- Critical: Feign Death resisted, Wing Clip fell off in melee, dead zone in PvP. Warning: wrong aspect in combat, no aspect, leaving town or a battleground queue popping with low supplies, unhappy pet, no pet food, enemy PvP trinket. Info: content pet, pet food too low, low supplies in town, trainer and pet trainer ranks on level up, rare tameable beast within 150 yards (new), junk sold / repaired, where to level next, entering a battleground.
+- No chat spam for anything shown on screen (trainer list, vendor summary, level-up route, PvP mode). Sound only for critical alerts, and it can be turned off. Edge flashes are softer.
+- Options > Alerts: size, how many at once, quiet mode (critical only), sound, edge flashes, a Test alerts button, and a switch for every category and every alert. Also `/nock alerts test | quiet | sound | size | max | list | <category> on|off | <id> on|off` and an unbound "Show test alerts" keybind.
+- The Wing Clip / dead zone cue under your character is now a slim themed plate: icon, a few words and a 2 px Wing Clip timer ("Wing Clip, then step back", "Step back", "Dead zone", "Out of range"). The PvP readout is a compact themed plate too.
+- Built to grow: alerts are declared in `Data_Alerts.lua` (id, category, priority, icon, title / detail templates, cooldown, contexts, level range, spec, condition) and fired with `Nock.Alerts:Fire(id, vars)`; options and slash switches are generated from the registry; styles are pluggable theme tables. See README "Adding an alert".
+
+**Nock window**
+- Rebuilt on one layout grid for every tab: header (page title, one-line subtitle, profile selector with its label), content area, a dedicated action bar row (help text left, page buttons right-aligned at one size) and tabs attached to the bottom edge. Page buttons no longer sit on the tabs, the help text no longer collides with them, and the scrollbar sits in its own lane inside the frame.
+- Sizes come from the bar size (Small / Normal / Large) and the window scales itself down to fit smaller screens or large UI scales. Tabs shrink their labels or share the width evenly if they would not fit.
+- My Rotation key list: labels line up on one column whatever the key badge width, and the two columns stay row-aligned. Options rows grow with their text so long labels never overlap.
+- Fixed: the window sizing code never ran (it looked up the window before it existed), which is why the 3.x Large layout values were not applied.
+
+**Map pins**
+- New pin kinds, each with its own switch: bowyers and gunsmiths, quiver and ammo pouch vendors, pet food vendors (only those selling what your pet eats, or all), hunter class quest givers near your level, and flight masters (off by default). Weapon masters join the trainer pins.
+- Vendor tooltips list what each vendor sells by category (arrows, bullets, quivers, ammo pouches, bows, guns, crossbows, thrown, pet food by diet, drinks) with item icons and the best item for your level, from QuestieDB vendor data. Ammo for your ranged weapon (arrows for bow / crossbow, bullets for gun) and food your pet eats are marked green. A small dot on the pin shows a second category.
+- Clutter control: the minimap shows the nearest 3 of each kind (1, 3 or all in Options), folds overlapping pins into one with a count, and only trainers, stables and hunter vendors stay on the minimap rim when out of range (not pet food, quests or flight masters). City and zone maps show each other's nearby pins (a city's NPCs on its zone map), and crowded spots cluster with a combined tooltip.
+- New pin icons: restart the game fully once.
+
 ## 3.4.1
 
 - The kill / XP tracker sat on top of the bar stack under the bow, where the pet / extra row covered it and took the mouse, so Shift-drag did nothing. It now starts at the top centre, sits above the bars (HIGH strata) with a dark backdrop, an emerald edge and a `::` grip, sizes itself to its text, and stays on screen. Shift-drag moves it; `/nock tracker unlock | lock | reset` too. Old 3.4.0 positions are dropped.

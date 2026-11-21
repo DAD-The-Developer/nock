@@ -133,16 +133,12 @@ function M:OnProfile(what)
   end
   local P = Core.P
   if Core.IsEndgame() then
-    Core.Say("Level 60: endgame mode. /nock route for the raid-night checklist, /nock kit for the Field Kit.")
+    Nock.Alerts:Fire("route.levelup", { level = P.level, zones = "Endgame mode — raid-night checklist on the Tools tab" })
     return
   end
   local now = M.Band(P.faction, P.level)
-  local ms = M.Milestones(P.level, P.spec, 0, 0)
   if now then
-    Core.Say(string.format("Level %d: %s", P.level, now[3]))
-  end
-  for _, row in ipairs(ms) do
-    Core.Say("  " .. row[2])
+    Nock.Alerts:Fire("route.levelup", { level = P.level, zones = now[3] })
   end
 end
 

@@ -22,6 +22,19 @@ If the game says it is out of date, enable "Load out of date AddOns"
 once, then tell me the interface number from /dump select(4, GetBuildInfo()).
 
 
+New in 3.5.0
+One clean alert system for every reminder: a small movable stack with
+the real spell or item icon, a short title and one line of detail,
+styled to match Emerald or Gunsmith. At most two at once, critical
+first; sound only for critical. Options > Alerts has size, quiet mode,
+a Test alerts button and a switch for every alert (/nock alerts test).
+The Nock window is rebuilt: page buttons have their own row above the
+tabs, nothing overlaps at any size, and it fits smaller screens.
+More hunter map pins: bowyers and gunsmiths, quiver and pouch vendors,
+pet food vendors for your pet's diet, hunter quests and (optional)
+flight masters. Hover a vendor to see what it sells and the best item
+for your level. Restart the game fully once for the new pin icons.
+
 New in 3.4.1
 Move any Nock frame: /nock unlock outlines every movable frame
 (tracker, quiver, threat meter, range and PvP readouts, alerts) so you

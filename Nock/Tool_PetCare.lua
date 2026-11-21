@@ -24,11 +24,10 @@ local M = Core.Register({
   name = "Pet happiness and feeding",
   desc = "Big warning when your pet is not happy. One key feeds it the best food it eats.",
   cmd = { "pet", "feed" },
-  defaults = { on = true, content = true, nofood = true, sound = true },
+  defaults = { on = true, content = true, nofood = true },
   options = {
     { key = "content", label = "Warn at content (yellow), not just unhappy", tip = "Content pets do less damage. Feed them before they turn red." },
     { key = "nofood", label = "Warn when you carry no food your pet eats" },
-    { key = "sound", label = "Play a sound with pet warnings" },
   },
   help = { "/nock pet — pet happiness, diet and the food the Feed key will use. Key: Feed pet (best food)" },
 })
@@ -159,6 +158,28 @@ local function MakeButton()
   return b
 end
 
+function M.DietText(diets)
+  local list = {}
+  for d in pairs(diets or {}) do
+    if d ~= "Raw Meat" and d ~= "Raw Fish" then
+      list[#list + 1] = d:lower()
+    end
+  end
+  table.sort(list)
+  if #list == 0 then
+    return "unknown food"
+  end
+  return table.concat(list, ", ")
+end
+
+local function PetName()
+  local n = Core.Call(UnitName, "pet")
+  if type(n) ~= "string" or Core.IsSecret(n) then
+    return "Your pet"
+  end
+  return n
+end
+
 function M.MacroText()
   local feed = select(3, Core.Call(Nock.PlayerKnows, "Feed Pet")) or "Feed Pet"
   if not HasPet() then
@@ -168,7 +189,7 @@ function M.MacroText()
   local diets = M.Diets()
   local food = M.PickFood(Core.Bags(), diets, Core.Number(UnitLevel and UnitLevel("pet")) or Core.P.level)
   if not food then
-    return "/run Nock.Core.Alert('No food your pet eats', {color='bad', sub='Buy pet food at a vendor (meat, fish, bread, cheese, fruit or fungus — see /nock pet)', sound=true})", nil
+    return string.format("/run Nock.Alerts:Fire('pet.nofood',{diet='%s'},{force=true})", M.DietText(diets)), nil
   end
   return string.format("/cast %s\n/use item:%d", feed, food.id), food
 end
@@ -206,19 +227,11 @@ local function Warn(h, force)
   if not HasPet() or PvPQuiet() then
     return
   end
-  local loud = Core.Get("pet", "sound") ~= false
+  local A = Nock.Alerts
   if h == 1 then
-    if force or Core.Throttle("pet:unhappy", 45) then
-      Core.Alert("Your pet is UNHAPPY", { color = "bad", key = "pet", priority = 3,
-        sub = "Feed it now (Feed pet key). Unhappy pets do less damage and can leave you.", sound = loud, duration = 5 })
-    end
-  elseif h == 2 and Core.Get("pet", "content") ~= false then
-    local bm = Core.Leans("bm")
-    if (force or Core.Throttle("pet:content", bm and 90 or 180)) and not Core.InCombat() then
-      Core.Alert("Pet is only content", { color = "warn", key = "pet", priority = 1,
-        sub = "Feed it to get back to happy (green)." .. (bm and " Your build lives on the pet." or ""),
-        sound = (loud and bm) and "soft" or nil, duration = 4 })
-    end
+    A:Fire("pet.unhappy", { pet = PetName() }, { force = force })
+  elseif h == 2 and Core.Get("pet", "content") ~= false and not Core.InCombat() then
+    A:Fire("pet.content", { pet = PetName() }, { force = force })
   end
 end
 
@@ -233,18 +246,9 @@ local function CheckFood()
   local petLevel = Core.Number(UnitLevel and UnitLevel("pet")) or Core.P.level
   local food, any = M.PickFood(Core.Bags(), diets, petLevel)
   if not any then
-    if Core.Throttle("pet:nofood", 600) then
-      local list = {}
-      for d in pairs(diets) do
-        list[#list + 1] = d
-      end
-      table.sort(list)
-      Core.Alert("No food your pet eats", { color = "warn", key = "petfood", priority = 1,
-        sub = "Your pet eats: " .. table.concat(list, ", ") .. ". Buy some before you leave town." })
-    end
-  elseif food and food.grade == 0 and Core.Throttle("pet:lowfood", 900) then
-    Core.Alert("Pet food is too low level", { color = "warn", key = "petfood", priority = 1,
-      sub = string.format("%s will not cheer up a level %d pet. Buy higher level food.", food.name or "Your food", petLevel) })
+    Nock.Alerts:Fire("pet.nofood", { diet = M.DietText(diets) })
+  elseif food and food.grade == 0 then
+    Nock.Alerts:Fire("pet.lowfood", { food = food.name or "Your food", level = petLevel })
   end
 end
 

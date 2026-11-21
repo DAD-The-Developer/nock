@@ -33,7 +33,7 @@ POINTS = { 21, 5, 0 }
 Nock.TraitPointsByTab = function() return POINTS[1], POINTS[2], POINTS[3] end
 
 local FILES = {
-  "PinsData.lua", "HunterMap.lua", "Quiver.lua", "Core.lua", "Movers.lua", "Data_Spells.lua", "Data_Pets.lua", "Data_Food.lua", "Data_Route.lua",
+  "PinsData.lua", "HunterMap.lua", "Quiver.lua", "Core.lua", "Movers.lua", "Alerts.lua", "Data_Alerts.lua", "Data_Spells.lua", "Data_Pets.lua", "Data_Food.lua", "Data_Route.lua",
   "Tool_PetCare.lua", "Tool_Supplies.lua", "Tool_Vendor.lua", "Tool_Range.lua", "Tool_Taming.lua", "Tool_Aspects.lua",
   "Tool_Feign.lua", "Tool_Guide.lua", "Tool_Trainer.lua", "Tool_Tracker.lua", "Data_PvP.lua", "Tool_PvP.lua",
 }
@@ -56,8 +56,8 @@ local function tickFor(seconds)
     RunTimers()
   end
 end
-local function lastAlert() return Core.lastAlert or "" end
-local function clearAlert() Core.lastAlert = nil; Core.HideAlert() end
+local function lastAlert() return Core.lastFired or "" end
+local function clearAlert() Core.lastFired = nil; Core.lastAlert = nil; Core.HideAlert(); if Nock.Alerts then Nock.Alerts:ResetCooldowns() end end
 
 fire("PLAYER_LOGIN")
 fire("PLAYER_ENTERING_WORLD")
@@ -66,6 +66,81 @@ RunTimers()
 -- Registry ----------------------------------------------------------------------
 check(#Core.order == 11, "eleven tools registered (" .. #Core.order .. ")")
 local errs = 0
+-- 3.5.0 pins: hunter vendor categories -----------------------------------------------
+local PN = Nock.Pins
+local pc = PN.Counts()
+for _, k in ipairs({ "ranged:A", "ranged:H", "quiver:A", "quiver:H", "petfood:A", "petfood:H", "quest:A", "quest:H", "flight:A", "flight:H" }) do
+  check((pc[k] or 0) > 0, "pins have " .. k .. " (" .. tostring(pc[k]) .. ")")
+end
+check(not PN.KindOn("flight") and PN.KindOn("ranged") and PN.KindOn("petfood"), "flight masters off by default, vendor kinds on")
+local arrowVendor
+for _, r in ipairs(Nock.PinData) do
+  if r[8]:find("a", 1, true) and r[9] > 0 then arrowVendor = r break end
+end
+check(arrowVendor ~= nil, "an arrow vendor with stock data")
+local ev = { goods = arrowVendor[8], stock = Nock.PinStock[arrowVendor[9]] }
+local oldInv, oldInst = GetInventoryItemID, C_Item.GetItemInfoInstant
+GetInventoryItemID = function(_, slot) if slot == 18 then return 2504 end return oldInv(_, slot) end
+C_Item.GetItemInfoInstant = function(id) return id, "Weapon", "Bows", "INVTYPE_RANGED", 1, 2, 2 end
+check(PN.AmmoCode() == "a", "bow equipped: arrows are your ammo")
+local gl = PN.GoodsLines(ev)
+local sawArrows = false
+for _, l in ipairs(gl) do
+  if l.left:find("Arrows", 1, true) then
+    sawArrows = true
+    check(l.mark == "your ammo" and l.right ~= "", "arrows line marked as your ammo with the best arrow: " .. l.right)
+  end
+end
+check(sawArrows, "tooltip lists the vendor's arrows")
+GetInventoryItemID, C_Item.GetItemInfoInstant = oldInv, oldInst
+local codes = PN.PetDietCodes()
+check(codes and codes.M and codes.F and not codes.B, "pet diet codes from the pet's food types")
+local bestLow = PN.StockByGoods(ev, 1)
+check(bestLow.a and bestLow.a.best, "best item for a level 1 hunter exists")
+check(Nock.PinItems and next(Nock.PinItems) ~= nil, "vendor item table loaded")
+
+-- 3.5.0 alert manager -------------------------------------------------------------------
+local A = Nock.Alerts
+check(A and A.defs["feign.resisted"] and A.defs["range.clipoff"] and A.defs["supplies.leave"], "alert registry loaded")
+local nDefs = 0
+for _ in pairs(A.defs) do nDefs = nDefs + 1 end
+check(nDefs >= 20, "20+ alerts declared (" .. nDefs .. ")")
+A:Clear(); A:ResetCooldowns()
+local function visibleIds()
+  local out = {}
+  for _, t in ipairs(A.visible or {}) do out[#out + 1] = t.item.def.id end
+  return table.concat(out, ",")
+end
+A:Fire("supplies.town", { list = "Ammo 100/600" })
+A:Fire("aspect.travel", { pick = "Aspect of the Cheetah" })
+check(#A.visible == 2, "two toasts visible: " .. visibleIds())
+A:Fire("train.levelup", { list = "Serpent Sting 3" })
+check(#A.visible == 2 and #A.queue == 1, "third info alert waits in the queue")
+A:Fire("feign.resisted", nil, { force = true })
+check(A.visible[1].item.def.id == "feign.resisted", "critical goes on top: " .. visibleIds())
+check(#A.visible == 2, "still only two on screen")
+A:Fire("feign.resisted", nil, { force = true })
+check(#A.visible == 2, "duplicate refreshes instead of stacking")
+A:Clear(); A:ResetCooldowns()
+check(A:Fire("supplies.town", { list = "x" }), "first fire shows")
+A:Clear()
+check(not A:Fire("supplies.town", { list = "x" }), "cooldown blocks a repeat")
+A:ResetCooldowns(); A:SetCategory("supplies", false)
+check(not A:Fire("supplies.town", { list = "x" }), "category off blocks")
+A:SetCategory("supplies", true); A:SetAlert("supplies.town", false)
+check(not A:Fire("supplies.town", { list = "x" }), "single alert off blocks")
+A:SetAlert("supplies.town", true); A:SetQuiet(true)
+check(not A:Fire("supplies.town", { list = "x" }) and A:Fire("feign.resisted", nil, { force = true }), "quiet mode: critical only")
+A:SetQuiet(false); A:Clear(); A:ResetCooldowns()
+check(not A:Fire("range.deadzone"), "PvP-only alert stays off in the open world")
+check(A.Format("{pet} is unhappy", { pet = "Grr" }) == "Grr is unhappy", "title templates")
+A:Test()
+check(#A.visible >= 1, "test alerts show")
+SlashCmdList.NOCK("alerts test")
+check(#A.visible >= 1, "/nock alerts test")
+A:Clear()
+check(type(_G.Nock_TestAlerts) == "function", "test alerts binding function")
+
 for id, e in pairs(Core.errors or {}) do print("  error " .. id .. ": " .. e); errs = errs + 1 end
 check(errs == 0, "no tool errors after login")
 for _, id in ipairs(Core.order) do
@@ -140,7 +215,7 @@ COMBAT = false; fire("PLAYER_REGEN_ENABLED")
 check(btn._attr.macrotext == "/cast Feed Pet\n/use item:2287", "rewrites after combat")
 clearAlert()
 HAPPY = 1; fire("UNIT_HAPPINESS", "pet")
-check(lastAlert():find("UNHAPPY", 1, true), "unhappy pet alert")
+check(lastAlert():find("is unhappy", 1, true), "unhappy pet alert")
 HAPPY = 3; fire("UNIT_HAPPINESS", "pet")
 
 -- 2 Supplies -------------------------------------------------------------------------------
@@ -153,16 +228,17 @@ INV.count = 120
 clearAlert()
 RESTING = true; fire("PLAYER_UPDATE_RESTING")
 RESTING = false; fire("PLAYER_UPDATE_RESTING")
-check(lastAlert():find("Leaving town short", 1, true) and lastAlert():find("ammo", 1, true), "big warning when leaving town short")
+check(lastAlert():find("Leaving town low", 1, true) and lastAlert():find("mmo", 1, true), "big warning when leaving town short: " .. lastAlert())
 
 -- 3 Vendor -------------------------------------------------------------------------------------
 local Ven = Core.Module("vendor")
 check(#Ven.JunkList(Core.ScanBags()) == 2, "two junk stacks")
-REPAIR = { 31250, true }; USED = {}; CHAT = {}
+REPAIR = { 31250, true }; USED = {}; CHAT = {}; clearAlert()
 fire("MERCHANT_SHOW"); RunTimers()
 check(#USED == 2 and USED[1] == "0:2", "sold the greys")
 check(REPAIRED == "own", "repaired from own gold, not guild")
-check(has(CHAT, "Sold 2 junk items for 2s 45c") and has(CHAT, "Repaired for 3g 12s 50c"), "one-line summary: " .. tostring(CHAT[#CHAT]))
+check(lastAlert():find("Sold 2 junk for 2s 45c", 1, true) and lastAlert():find("Repaired for 3g 12s 50c", 1, true), "on-screen summary: " .. lastAlert())
+check(#CHAT == 0, "no chat spam for the vendor summary")
 fire("MERCHANT_CLOSED")
 SHIFT = true; USED = {}; fire("MERCHANT_SHOW"); SHIFT = false
 check(#USED == 0, "Shift skips once")
@@ -179,18 +255,18 @@ check(R.Classify(nil, nil, nil, nil) == nil, "secret readings: no guess")
 UNITS.target = true; COMBAT = true
 RANGE = { ["Raptor Strike"] = true, ["Wing Clip"] = true, ["Auto Shot"] = false }
 tickFor(0.2)
-check(R.frame and R.frame._shown and R.frame.head._text == "WING CLIP, then step back", "melee: Wing Clip prompt")
+check(R.frame and R.frame._shown and R.frame.head._text == "Wing Clip, then step back", "melee: Wing Clip prompt")
 check(caps.BUTTON4.nockClipGlow and caps.BUTTON4.nockClipGlow._shown, "Wing Clip key glows")
 fire("UNIT_SPELLCAST_SUCCEEDED", "player", "cast", 2974)
 tickFor(0.2)
-check(R.frame.head._text == "STEP BACK" and R.frame.sub._text:find("Wing Clip 10s", 1, true), "clipped: step back with timer")
+check(R.frame.head._text == "Step back" and R.frame.sub._text:find("Wing Clip 10s", 1, true), "clipped: step back with timer")
 check(not caps.BUTTON4.nockClipGlow._shown, "glow off once clipped")
 clearAlert()
 tickFor(10.2)
 check(lastAlert():find("Wing Clip fell off", 1, true), "fall-off alert while still in melee")
 RANGE = { ["Raptor Strike"] = false, ["Wing Clip"] = false, ["Auto Shot"] = false }
 tickFor(0.2)
-check(R.frame.head._text == "DEAD ZONE", "dead zone readout")
+check(R.frame.head._text == "Dead zone", "dead zone readout")
 RANGE = { ["Raptor Strike"] = false, ["Wing Clip"] = false, ["Auto Shot"] = true }
 tickFor(0.2)
 check(not R.frame._shown, "hidden at shooting range")
@@ -208,7 +284,7 @@ check(byName.Prowl and byName.Prowl.nextRank == 1, "Prowl missing")
 check(#Tm.NearRares(24, false) > 0, "rares near level 24")
 local counts, total = Nock.Pins.Counts()
 check((counts["tame:AH"] or 0) >= 60, "rare beasts added as pins (" .. tostring(counts["tame:AH"]) .. ")")
-check(Nock.Pins.KINDS[5].id == "tame", "tame pin kind registered")
+check(Nock.Pins.KINDS[#Nock.Pins.KINDS].id == "tame", "tame pin kind registered")
 
 -- 6 Aspects -----------------------------------------------------------------------------------------------
 local As = Core.Module("aspects")
@@ -219,7 +295,7 @@ fire("UNIT_SPELLCAST_SUCCEEDED", "player", "c", 5118)
 check(As.Current() == "Aspect of the Cheetah", "tracks aspect from casts")
 clearAlert(); COMBAT = true
 fire("PLAYER_REGEN_DISABLED"); NOW = NOW + 1; RunTimers()
-check(lastAlert():find("Cheetah is ON in combat", 1, true), "Cheetah in combat warning")
+check(lastAlert():find("Cheetah is on in combat", 1, true), "Cheetah in combat warning")
 COMBAT = false
 fire("UNIT_SPELLCAST_SUCCEEDED", "player", "c", 13165)
 
@@ -228,7 +304,7 @@ local Fd = Core.Module("feign")
 check(Fd.Resisted(false, false) == true and Fd.Resisted(true, false) == false and Fd.Resisted(nil, false) == nil, "resist logic")
 clearAlert(); FEIGN = false
 fire("UNIT_SPELLCAST_SUCCEEDED", "player", "c", 5384); NOW = NOW + 0.5; RunTimers()
-check(lastAlert() == "FEIGN DEATH RESISTED", "resisted alert")
+check(lastAlert():find("Feign Death resisted", 1, true) == 1, "resisted alert")
 clearAlert(); FEIGN = true
 fire("UNIT_SPELLCAST_SUCCEEDED", "player", "c", 5384); NOW = NOW + 0.5; RunTimers()
 check(lastAlert() == "", "no alert when feign worked")
@@ -265,7 +341,8 @@ check(ca, "talent rank listed once you have the talent")
 check(#Tr.PetNew(20) > 0, "pet trainer ranks at 20")
 clearAlert(); CHAT = {}
 LEVEL = 26; fire("PLAYER_LEVEL_UP", 26); NOW = NOW + 3; RunTimers()
-check(has(CHAT, "At the trainer:"), "level-up trainer message")
+check(lastAlert():find("New at your trainer", 1, true), "level-up trainer alert")
+check(#CHAT == 0, "no chat spam for the trainer alert")
 
 -- 10 Tracker ------------------------------------------------------------------------------------------------------------
 local Tk = Core.Module("tracker")
@@ -312,7 +389,7 @@ UnitClass = function() return "Rogue", "ROGUE" end
 C_Secrets = { ShouldAurasBeSecret = function() return false end }
 C_UnitAuras = { GetAuraDataBySpellName = function(_, name) if name == "Evasion" then return { expirationTime = NOW + 8 } end end }
 NOW = NOW + 0.3; Core._Tick(nil, 0.3)
-check(Pv.frame and Pv.frame._shown and Pv.frame.lines[1]._text:find("ROGUE", 1, true), "PvP readout for enemy player")
+check(Pv.frame and Pv.frame._shown and Pv.frame.lines[1]._text:find("Rogue", 1, true), "PvP readout for enemy player")
 check(Pv.frame.lines[3]._text:find("Evasion", 1, true), "big enemy buff called out")
 check(Pv.frame.lines[2]._text:find("Not slowed", 1, true), "not slowed cue")
 clearAlert(); SPELLNAME[42292] = "PvP Trinket"

@@ -748,168 +748,29 @@ function Core.ProfileChanged(what)
 end
 
 -- Alerts -----------------------------------------------------------------------
--- One big centre banner. Higher priority replaces lower; the same key is not
--- repeated while it is still showing.
-
-local alert
-local SOUND_WARN = 8959 -- SOUNDKIT.RAID_WARNING
-local SOUND_SOFT = 3081 -- SOUNDKIT.TELL_MESSAGE
-
-local function ThemeFont(fs, size)
-  local T = _G.NockTheme
-  if T and T.EnsureFont then
-    T.EnsureFont(fs, size, "THICKOUTLINE")
-  elseif fs.SetFont then
-    pcall(fs.SetFont, fs, "Fonts\\FRIZQT__.TTF", size, "THICKOUTLINE")
-  end
-end
-
-local function MakeAlert()
-  if alert then
-    return alert
-  end
-  local f = CreateFrame("Frame", "NockAlertFrame", UIParent)
-  f:SetSize(760, 86)
-  f:SetPoint("TOP", UIParent, "TOP", 0, -150)
-  f:SetFrameStrata("HIGH")
-  if f.EnableMouse then
-    f:EnableMouse(false)
-  end
-  local bg = f:CreateTexture(nil, "BACKGROUND")
-  bg:SetAllPoints()
-  bg:SetColorTexture(0.03, 0.07, 0.06, 0.72)
-  f.bg = bg
-  local top = f:CreateTexture(nil, "BORDER")
-  top:SetPoint("TOPLEFT")
-  top:SetPoint("TOPRIGHT")
-  top:SetHeight(2)
-  f.lineTop = top
-  local bot = f:CreateTexture(nil, "BORDER")
-  bot:SetPoint("BOTTOMLEFT")
-  bot:SetPoint("BOTTOMRIGHT")
-  bot:SetHeight(2)
-  f.lineBot = bot
-  local icon = f:CreateTexture(nil, "ARTWORK")
-  icon:SetSize(56, 56)
-  icon:SetPoint("LEFT", 16, 0)
-  f.icon = icon
-  local text = f:CreateFontString(nil, "OVERLAY")
-  ThemeFont(text, 30)
-  text:SetPoint("TOPLEFT", 84, -12)
-  text:SetPoint("TOPRIGHT", -16, -12)
-  text:SetJustifyH("LEFT")
-  f.text = text
-  local sub = f:CreateFontString(nil, "OVERLAY")
-  ThemeFont(sub, 17)
-  sub:SetPoint("TOPLEFT", text, "BOTTOMLEFT", 0, -6)
-  sub:SetPoint("TOPRIGHT", text, "BOTTOMRIGHT", 0, -6)
-  sub:SetJustifyH("LEFT")
-  f.sub = sub
-  f:Hide()
-  if Core.MakeMovable then
-    Core.MakeMovable(f, "alert", "Hunter tool alerts", { "TOP", "TOP", 0, -150 }, {
-      preview = function(on)
-        if on then
-          f.text:SetText("Hunter tool alerts")
-          f.text:SetTextColor(1, 0.8, 0.2)
-          f.sub:SetText("Big warnings show here")
-          f.icon:Hide()
-          f.untilT = Now() + 1e9
-          f:SetAlpha(1)
-          f:Show()
-        else
-          f:Hide()
-          f.key, f.prio = nil, nil
-        end
-      end,
-    })
-  end
-  f:SetScript("OnUpdate", function(self)
-    local left = (self.untilT or 0) - Now()
-    if left <= 0 then
-      self:Hide()
-      self.key, self.prio = nil, nil
-      return
-    end
-    local a = 1
-    if left < 0.6 then
-      a = left / 0.6
-    end
-    local age = Now() - (self.startT or 0)
-    if age < 0.15 then
-      a = math.min(a, age / 0.15)
-    end
-    self:SetAlpha(a)
-  end)
-  alert = f
-  return f
-end
+-- 3.5.0: every on-screen alert goes through Nock.Alerts (Alerts.lua): one
+-- tidy stack, priority queue, de-duplication and cooldowns. Core.Alert is
+-- kept so older calls still work; new code calls Nock.Alerts:Fire(id, vars).
 
 Core.COLORS = {
-  bad = { 1.00, 0.30, 0.25 },
-  warn = { 1.00, 0.80, 0.20 },
-  good = { 0.30, 1.00, 0.55 },
-  info = { 0.55, 0.85, 1.00 },
+  bad = { 0.90, 0.30, 0.25 },
+  warn = { 0.95, 0.72, 0.25 },
+  good = { 0.30, 0.85, 0.55 },
+  info = { 0.45, 0.75, 0.95 },
 }
 
---[[ opts: sub, color ("bad"/"warn"/"good"/"info" or {r,g,b}), sound
-  (true = warning, "soft"), duration, key (dedupe), priority (1-3), icon ]]
 function Core.Alert(text, opts)
-  opts = opts or {}
-  if Core.Muted() and not opts.force then
+  local A = Nock.Alerts
+  if not A then
     return false
   end
-  if Core.Unlocked and Core.Unlocked() then
-    return false -- the alert spot is showing its sample while frames are unlocked
-  end
-  local f = MakeAlert()
-  local prio = opts.priority or 2
-  local key = opts.key or text
-  if f:IsShown() then
-    if f.key == key and f.text:GetText() == text then
-      f.untilT = Now() + (opts.duration or 4)
-      return false
-    end
-    if (f.prio or 0) > prio then
-      return false
-    end
-  end
-  local c = opts.color
-  if type(c) ~= "table" then
-    c = Core.COLORS[c or "warn"] or Core.COLORS.warn
-  end
-  f.text:SetText(text)
-  f.text:SetTextColor(c[1], c[2], c[3])
-  f.sub:SetText(opts.sub or "")
-  f.sub:SetTextColor(0.92, 0.97, 0.94)
-  f.lineTop:SetColorTexture(c[1], c[2], c[3], 0.9)
-  f.lineBot:SetColorTexture(c[1], c[2], c[3], 0.9)
-  if opts.icon then
-    f.icon:SetTexture(opts.icon)
-    f.icon:Show()
-    f.text:SetPoint("TOPLEFT", 84, -12)
-  else
-    f.icon:Hide()
-    f.text:SetPoint("TOPLEFT", 20, -12)
-  end
-  f.key, f.prio = key, prio
-  f.startT = Now()
-  f.untilT = Now() + (opts.duration or 4)
-  f:SetAlpha(0)
-  f:Show()
-  if opts.sound and PlaySound and DB().toolsSound ~= false then
-    pcall(PlaySound, opts.sound == "soft" and SOUND_SOFT or SOUND_WARN, "Master")
-  end
-  Core.lastAlert = text
-  return true
+  return A:FireAdhoc(text, opts or {})
 end
 
-Core.EnsureAlert = MakeAlert
-
 function Core.HideAlert(key)
-  if alert and alert:IsShown() and (not key or alert.key == key) then
-    alert:Hide()
-    alert.key, alert.prio = nil, nil
+  local A = Nock.Alerts
+  if A then
+    A:Clear(key)
   end
 end
 
@@ -941,9 +802,14 @@ function Core.Flash(r, g, b, duration)
       end
       local d = self.dur or 0.8
       local p = 1 - left / d
-      self:SetAlpha(math.sin(p * math.pi) * 0.85)
+      self:SetAlpha(math.sin(p * math.pi) * (self.peak or 0.3))
     end)
   end
+  -- Subtle: a soft tinted vignette, never a full-screen blink.
+  if (DB().alerts or {}).flash == false then
+    return
+  end
+  flash.peak = 0.3
   flash.tex:SetVertexColor(r or 1, g or 0.3, b or 0.2)
   flash.dur = duration or 0.8
   flash.untilT = Now() + flash.dur

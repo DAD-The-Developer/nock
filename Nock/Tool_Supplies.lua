@@ -108,22 +108,13 @@ local function Current()
 end
 
 local function Tell(loud, why)
-  local _, _, short, raid = Current()
+  local _, _, short = Current()
   if #short == 0 then
     return false
   end
-  local text = (loud and "Leaving town short: " or "Low supplies: ") .. table.concat(short, ", ")
-  local sub
-  local e, yd = Core.NearestPin(4)
-  if e then
-    sub = "Nearest ammo vendor: " .. Core.PinText(e, yd)
-  end
-  if raid then
-    sub = (sub and (sub .. ". ") or "") .. "Raid-night targets (endgame mode)."
-  end
-  Core.Alert(text, { color = loud and "bad" or "warn", key = "supplies", priority = loud and 3 or 1,
-    sub = sub, sound = loud and true or nil, duration = loud and 6 or 4 })
-  return true
+  local list = table.concat(short, "  ·  ")
+  local id = (why == "queue" and "supplies.queue") or (loud and "supplies.leave") or "supplies.town"
+  return Nock.Alerts:Fire(id, { list = list }, { force = why == "key" }) and true or false
 end
 M.Tell = Tell
 
@@ -158,11 +149,7 @@ end)
 -- Battleground queue popped: check ammo before you click Enter.
 function M:OnProfile(what)
   if what == "queuepop" then
-    local _, _, short = Current()
-    if #short > 0 then
-      Core.Alert("Queue popped — low: " .. table.concat(short, ", "), { color = "bad", key = "supplies", priority = 3,
-        sub = "Restock before you enter if a vendor is close.", sound = true, duration = 6 })
-    end
+    Tell(true, "queue")
   end
 end
 
@@ -211,6 +198,7 @@ function _G.Nock_SupplyCheck()
     return Core.Say("Supply warnings are off. /nock supplies on")
   end
   if not M.Tell(false, "key") then
-    Core.Alert("Supplies look good", { color = "good", key = "supplies", priority = 1, sub = M:Report()[1], duration = 3 })
+    local stock, targets = Current()
+    Nock.Alerts:Fire("supplies.ok", { list = string.format("Ammo %d  ·  pet food %d  ·  food %d  ·  water %d", stock.ammo, stock.petfood, stock.food, stock.drink) }, { force = true })
   end
 end
