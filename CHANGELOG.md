@@ -2,6 +2,12 @@
 
 All notable changes to Nock from 3.0.11 onward. The addon folder's `Nock/README.txt` also has older notes.
 
+## 3.6.2
+
+- Pet bar: Attack, Follow, Stay and the stances were drawn at about 40% brightness on a dark tile, so they looked missing. Commands are now full colour, off stances and skills stay clearly visible, and "on" is still the green border. Attack / Follow / Stay show the key that does the same thing (Shift-T, Ctrl-T, Alt-T from the extra row).
+- Wing Clip has its own tile at the start of the extra row, showing the key that casts it (Caps Lock from the dedicated keys, otherwise Shift-Z or Mouse 4). Before, Wing Clip had a key but no tile anywhere.
+- New test: tests/run_petbar.py (live, dead and missing pet; Wing Clip tile).
+
 ## 3.6.1
 
 Pet bar fixes.

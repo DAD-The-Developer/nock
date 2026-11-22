@@ -22,6 +22,11 @@ If the game says it is out of date, enable "Load out of date AddOns"
 once, then tell me the interface number from /dump select(4, GetBuildInfo()).
 
 
+New in 3.6.2
+Pet commands (Attack, Follow, Stay) and stances are bright and easy to
+see on the pet bar, with their keys. Wing Clip has its own tile at the
+start of the extra row showing its key (Caps Lock).
+
 New in 3.6.1
 Call / Revive and Mend Pet are on the pet bar, and the pet bar stays up
 with Call / Revive when your pet is dead, so you can bring it back from

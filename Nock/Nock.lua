@@ -75,7 +75,7 @@
 ]]
 
 local ADDON_NAME = ...
-local VERSION = "3.6.1"
+local VERSION = "3.6.2"
 -- Keys, bars and macros last changed in 1.9.0; 2.0 is a new look only, so a
 -- character set up on 1.9.0 is not asked to set up again. 2.0.1's racial keys
 -- (Alt-1, Alt-E) are added by auto keep-up, only on keys that are free.
@@ -844,6 +844,9 @@ local function OverlayKeyLabel(key)
   end
   if key == "`" then
     return "`"
+  end
+  if key == "CAPSLOCK" then
+    return "Caps"
   end
   -- The game fonts have no modifier glyphs, so use Blizzard's own short form.
   -- 2.1: mouse buttons read M4, M5 and MMB (the wheel click).
@@ -3008,21 +3011,23 @@ function Pet.PaintPetVisual(cap)
     autoAllow = info.autoCastAllowed
     bright = info.isActive or autoOn
   end
+  -- 3.6.2: off tiles were drawn at ~40% on a dark tile, so Attack, Stay and
+  -- the stances looked empty. Commands are always full colour; off stances
+  -- and skills stay clearly visible. "On" is the green border and glow.
+  local command = info and Pet.PetGroup(info) == "command"
   if cap.icon.SetVertexColor then
-    if cap.isSpell then
+    if cap.isSpell or bright or command then
       cap.icon:SetVertexColor(1, 1, 1)
     elseif not info then
-      cap.icon:SetVertexColor(0.35, 0.35, 0.35)
-    elseif not info.usable and not bright then
-      cap.icon:SetVertexColor(0.32, 0.32, 0.32)
-    elseif bright then
-      cap.icon:SetVertexColor(1, 1, 1)
+      cap.icon:SetVertexColor(0.45, 0.45, 0.45)
+    elseif not info.usable then
+      cap.icon:SetVertexColor(0.55, 0.55, 0.55)
     else
-      cap.icon:SetVertexColor(0.42, 0.42, 0.42)
+      cap.icon:SetVertexColor(0.80, 0.80, 0.80)
     end
   end
   if cap.icon.SetAlpha then
-    cap.icon:SetAlpha((bright or cap.isSpell) and 1 or 0.72)
+    cap.icon:SetAlpha(1)
   end
   -- Emerald border when on; dull wood when off.
   if cap.border then
@@ -3390,7 +3395,41 @@ function Pet.SetPetChipAction(cap, info)
     cap.icon:SetColorTexture(0.2, 0.25, 0.18, 1)
   end
   Pet.PaintPetVisual(cap)
+  Pet.PaintCommandKey(cap, info)
   cap:Show()
+end
+
+-- 3.6.2: Attack / Follow / Stay show the key that does the same thing.
+Pet.COMMAND_KEY = {
+  PET_ACTION_ATTACK = { book = "pet-go", macro = "MACRO Nock:PetGo", word = "Attack" },
+  PET_ACTION_FOLLOW = { book = "pet-back", macro = "MACRO Nock:PetBack", word = "Follow" },
+  PET_ACTION_WAIT = { book = "pet-stay", macro = "MACRO Nock:PetStay", word = "Stay" },
+}
+function Pet.PaintCommandKey(cap, info)
+  if not cap or not cap.tag then
+    return
+  end
+  local c = info and info.name and Pet.COMMAND_KEY[info.name]
+  if not c then
+    cap.tag:SetText("")
+    cap.tag:Hide()
+    return
+  end
+  local key
+  for _, r in ipairs(Book.lastRecs or {}) do
+    if r.id == c.book and r.key then
+      key = r.key
+      break
+    end
+  end
+  if not key and GetBindingKey then
+    local ok, k = pcall(GetBindingKey, c.macro)
+    if ok and type(k) == "string" and k ~= "" then
+      key = k
+    end
+  end
+  cap.tag:SetText(key and OverlayKeyLabel(key) or c.word)
+  cap.tag:Show()
 end
 
 function Pet.UpdatePetInfoStrip(wrap)
@@ -4643,6 +4682,14 @@ function Book.Assign()
     end
   end
 
+  -- 3.6.2: Wing Clip always has a tile. Its key lives outside Book (Caps Lock
+  -- from the dedicated keys, else Mouse 4 / Shift-Z from the keymap), so the
+  -- tile only shows that key and never binds anything itself.
+  if known["Wing Clip"] or Book.KnownName("Wing Clip") then
+    table.insert(rows, 1, { key = Book.WingClipKey(), id = "Wing Clip", label = "Wing Clip",
+      group = "combat", noBind = true })
+  end
+
   Book.assignment = rows
   Book.byKey = usedKeys
   Book.byName = usedNames
@@ -4653,6 +4700,24 @@ function Book.Assign()
     end
   end
   return rows
+end
+
+-- The key that casts Wing Clip right now, for the tile badge.
+function Book.WingClipKey()
+  local D = Nock.Dedicated
+  if D and D.LIST and D.KeyFor then
+    local ok, k = pcall(D.KeyFor, D.LIST[1])
+    if ok and k then
+      return k
+    end
+  end
+  if GetBindingKey then
+    local ok, k = pcall(GetBindingKey, "SPELL Wing Clip")
+    if ok and type(k) == "string" and k ~= "" then
+      return k
+    end
+  end
+  return nil
 end
 
 function Book.KeyForSpell(name)
@@ -4960,7 +5025,7 @@ function Book.ApplyBinds()
     return
   end
   for _, cap in ipairs(wrap.caps or {}) do
-    if cap.key and cap.bindName and cap.rec then
+    if cap.key and cap.bindName and cap.rec and not cap.rec.noBind then
       Book.BindClick(cap.key, cap.bindName)
     end
   end

@@ -162,6 +162,10 @@ function D.Apply()
   for _, e in ipairs(D.LIST) do
     e.applied = current[e.key] == e.button
   end
+  -- 3.6.2: the Wing Clip tile shows this key; repaint the bars.
+  if Nock.UpdateOverlay then
+    pcall(Nock.UpdateOverlay)
+  end
 end
 
 function D.SetEnabled(on)
