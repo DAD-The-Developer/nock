@@ -75,7 +75,7 @@
 ]]
 
 local ADDON_NAME = ...
-local VERSION = "3.6.2"
+local VERSION = "3.6.3"
 -- Keys, bars and macros last changed in 1.9.0; 2.0 is a new look only, so a
 -- character set up on 1.9.0 is not asked to set up again. 2.0.1's racial keys
 -- (Alt-1, Alt-E) are added by auto keep-up, only on keys that are free.
@@ -1181,8 +1181,15 @@ local BAR_KEYS_ALL = { "R", "1", "2", "3", "4", "5", "Q", "BUTTON4", "BUTTON3", 
 local BAR_KEYS = BAR_KEYS_MOUSE
 local DIVIDER_BEFORE = "Q" -- small arrow divider: the "it's on me" keys follow
 
+-- 3.6.3: mouse on, but Mouse 4 is yours (so Wing Clip sits on Shift-Z): the
+-- bow bar shows the Shift-Z tile in Mouse 4's place, so Wing Clip always has a
+-- full-size tile right after Q. Before, it had no tile at all.
+Nock.BAR_KEYS_MOUSE_SZ = { "R", "1", "2", "3", "4", "5", "Q", "SHIFT-Z", "BUTTON3" }
 local function MainBarKeys()
   if MouseOn() then
+    if Nock.wingShiftZ then
+      return Nock.BAR_KEYS_MOUSE_SZ
+    end
     return BAR_KEYS_MOUSE
   end
   return BAR_KEYS_KB
@@ -1708,6 +1715,17 @@ local function PaintChip(cap, key, entry)
   if known and twinEntry and KeyMatches(twin, twinEntry) then
     cap.twin = twin
     cap.mlabel:SetText(OverlayKeyLabel(twin))
+    local mw = (cap.mlabel.GetStringWidth and cap.mlabel:GetStringWidth()) or 14
+    if type(mw) ~= "number" or mw <= 0 or mw > 60 then
+      mw = 14
+    end
+    cap.mbadge:SetWidth(math.max(18, mw + 8))
+    cap.mbadge:Show()
+    cap.mlabel:Show()
+  elseif known and Nock.DedicatedTwin and Nock.DedicatedTwin(entry, key) then
+    -- 3.6.3: second badge for the dedicated key (Caps Lock Wing Clip, ` Mark).
+    local k = Nock.DedicatedTwin(entry, key)
+    cap.mlabel:SetText(OverlayKeyLabel(k))
     local mw = (cap.mlabel.GetStringWidth and cap.mlabel:GetStringWidth()) or 14
     if type(mw) ~= "number" or mw <= 0 or mw > 60 then
       mw = 14
@@ -4682,14 +4700,6 @@ function Book.Assign()
     end
   end
 
-  -- 3.6.2: Wing Clip always has a tile. Its key lives outside Book (Caps Lock
-  -- from the dedicated keys, else Mouse 4 / Shift-Z from the keymap), so the
-  -- tile only shows that key and never binds anything itself.
-  if known["Wing Clip"] or Book.KnownName("Wing Clip") then
-    table.insert(rows, 1, { key = Book.WingClipKey(), id = "Wing Clip", label = "Wing Clip",
-      group = "combat", noBind = true })
-  end
-
   Book.assignment = rows
   Book.byKey = usedKeys
   Book.byName = usedNames
@@ -4715,6 +4725,27 @@ function Book.WingClipKey()
     local ok, k = pcall(GetBindingKey, "SPELL Wing Clip")
     if ok and type(k) == "string" and k ~= "" then
       return k
+    end
+  end
+  return nil
+end
+
+-- 3.6.3: the dedicated key for a main bar tile's spell, if it differs.
+function Nock.DedicatedTwin(entry, key)
+  local D = Nock.Dedicated
+  if not (D and D.LIST and D.KeyFor and entry) then
+    return nil
+  end
+  local sp = entry.name
+  if entry.kind == "macro" then
+    sp = MacroSpell(entry) or sp
+  end
+  for _, e in ipairs(D.LIST) do
+    if e.spell == sp then
+      local ok, k = pcall(D.KeyFor, e)
+      if ok and k and k ~= key then
+        return k
+      end
     end
   end
   return nil
@@ -5363,6 +5394,7 @@ local function UpdateOverlay()
   local layout = LayoutFor(spec)
   -- Synthetic item tiles (not in the keymap layout).
   layout = layout or {}
+  Nock.wingShiftZ = MouseOn() and not layout.BUTTON4 and layout["SHIFT-Z"] ~= nil and true or false
   if HasItem("Hearthstone") then
     layout.HEARTH = ItemEntry("Hearthstone")
   end

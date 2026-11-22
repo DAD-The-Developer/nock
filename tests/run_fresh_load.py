@@ -14,8 +14,8 @@ TESTS = Path("/workspace/nock/tests")
 toc = (ROOT / "Nock.toc").read_text()
 if "## Interface: 16001" not in toc:
     sys.exit("TOC Interface is not 16001")
-if "## Version: 3.6.2" not in toc:
-    sys.exit("TOC Version is not 3.6.2")
+if "## Version: 3.6.3" not in toc:
+    sys.exit("TOC Version is not 3.6.3")
 
 lua_files = [
     line.strip()
@@ -84,8 +84,8 @@ def fail(msg):
 nock = g.Nock
 if not nock:
     fail("Nock global missing after load")
-if nock.Version != "3.6.2":
-    fail("Nock.Version is %r, expected 3.6.2" % (nock.Version,))
+if nock.Version != "3.6.3":
+    fail("Nock.Version is %r, expected 3.6.3" % (nock.Version,))
 
 theme = g.NockTheme
 if not theme:
@@ -123,7 +123,7 @@ if errs:
     fail("hunter tool errors on first login")
 if not g.NockFeedButton:
     fail("NockFeedButton (feed pet keybind) missing")
-# 3.6.2 dedicated Wing Clip / Hunter's Mark keys
+# 3.6.3 dedicated Wing Clip / Hunter's Mark keys
 if not g.NockWingClipButton or not g.NockMarkButton:
     fail("dedicated Wing Clip / Hunter's Mark buttons missing")
 if g.NockWingClipButton.GetAttribute(g.NockWingClipButton, "macrotext") != "/cast Wing Clip":
@@ -140,7 +140,7 @@ res = lua.execute(r'''
   GetBindingKey = function() return nil end
   D.SetEnabled(false); D.SetEnabled(true)
   assert(set["CAPSLOCK"] == "NockWingClipButton", "CAPSLOCK not suggested")
-  -- 3.6.2: no change means no Clear/Set (UPDATE_BINDINGS loop)
+  -- 3.6.3: no change means no Clear/Set (UPDATE_BINDINGS loop)
   local clears = 0
   local realClear = ClearOverrideBindings
   ClearOverrideBindings = function(...) clears = clears + 1; return realClear(...) end
@@ -180,7 +180,7 @@ res = lua.execute(r'''
 ''')
 print("dedicated keys OK:", g.Nock.Dedicated.Summary())
 if not g.NockPetRevive or not g.NockPetMend:
-    fail("pet bar Call / Revive and Mend tiles missing (3.6.2)")
+    fail("pet bar Call / Revive and Mend tiles missing (3.6.3)")
 if "[@pet,dead][nopet] Revive Pet" not in str(lua.eval("Nock.PetReviveMacro")):
     fail("revive macro must revive a dead pet that is not in the world")
 

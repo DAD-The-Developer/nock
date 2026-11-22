@@ -22,6 +22,10 @@ If the game says it is out of date, enable "Load out of date AddOns"
 once, then tell me the interface number from /dump select(4, GetBuildInfo()).
 
 
+New in 3.6.3
+Wing Clip is a full-size tile on the bow bar, right after Q, with its
+key (S-Z or M4) and a second Caps badge for the dedicated key.
+
 New in 3.6.2
 Pet commands (Attack, Follow, Stay) and stances are bright and easy to
 see on the pet bar, with their keys. Wing Clip has its own tile at the

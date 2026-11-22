@@ -2,6 +2,13 @@
 
 All notable changes to Nock from 3.0.11 onward. The addon folder's `Nock/README.txt` also has older notes.
 
+## 3.6.3
+
+- Wing Clip is a full-size tile on the bow bar, right after Q in the "it's on me" group. Root cause: with mouse buttons on but Mouse 4 holding your own bind, Nock moves Wing Clip to Shift-Z, and the bow bar only had a Mouse 4 slot, so Wing Clip got no bow tile. The bar now shows the Shift-Z tile in that place.
+- Main bar tiles show the dedicated key as a second badge: Caps on Wing Clip, ` on Hunter's Mark.
+- The small 3.6.2 Wing Clip tile on the extra row is gone (no duplicate; its "Caps" badge covered the icon).
+- tests/run_petbar.py also checks the Wing Clip bow tile with Mouse 4 free and with Mouse 4 yours.
+
 ## 3.6.2
 
 - Pet bar: Attack, Follow, Stay and the stances were drawn at about 40% brightness on a dark tile, so they looked missing. Commands are now full colour, off stances and skills stay clearly visible, and "on" is still the green border. Attack / Follow / Stay show the key that does the same thing (Shift-T, Ctrl-T, Alt-T from the extra row).
