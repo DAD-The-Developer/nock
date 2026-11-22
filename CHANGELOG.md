@@ -2,6 +2,14 @@
 
 All notable changes to Nock from 3.0.11 onward. The addon folder's `Nock/README.txt` also has older notes.
 
+## 3.6.1
+
+Pet bar fixes.
+- The pet bar now has Call / Revive and Mend Pet tiles (next to Train and Feed), with the key that does the same job shown on the tile (Ctrl-G and Shift-G from the extra row, or your own key). Both are also in Key Bindings > AddOns > Nock.
+- When your pet is dead or not called, the pet bar stays up with Call / Revive instead of leaving only Train and Feed. (The game gives no pet commands while the pet is dead, so Attack / Follow / Stay and pet skills come back once it is revived.)
+- Call / Revive also revives a dead pet that is no longer in the world (Call Pet fails, then Revive Pet casts). Ctrl-G uses the same fix.
+- The dedicated Wing Clip / Hunter's Mark keys no longer re-set their key every time key bindings update (it could loop).
+
 ## 3.6.0
 
 Dedicated Wing Clip and Hunter's Mark keys.

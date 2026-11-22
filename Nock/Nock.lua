@@ -75,7 +75,7 @@
 ]]
 
 local ADDON_NAME = ...
-local VERSION = "3.6.0"
+local VERSION = "3.6.1"
 -- Keys, bars and macros last changed in 1.9.0; 2.0 is a new look only, so a
 -- character set up on 1.9.0 is not asked to set up again. 2.0.1's racial keys
 -- (Alt-1, Alt-E) are added by auto keep-up, only on keys that are free.
@@ -3084,6 +3084,10 @@ function Pet.PetTooltip(cap)
             GameTooltip:AddLine("Opens the pet training window.", 0.8, 1, 0.85)
           elseif cap.role == "feed" then
             GameTooltip:AddLine("Feed your pet to keep it happy.", 0.8, 1, 0.85)
+          elseif cap.role == "revive" then
+            GameTooltip:AddLine("Calls your pet, or revives it if it is dead.", 0.8, 1, 0.85)
+          elseif cap.role == "mend" then
+            GameTooltip:AddLine("Heals your pet over a few seconds.", 0.8, 1, 0.85)
           end
         end
       end
@@ -3292,6 +3296,11 @@ function Pet.MakePetBar(parent)
   wrap.feed = Pet.MakePetChip(wrap, "NockPetFeed", true)
   wrap.feed.role = "feed"
   wrap.feed.tag:SetText("Feed")
+  -- 3.6.1: Call / Revive and Mend Pet live on the pet bar too.
+  wrap.revive = Pet.MakePetChip(wrap, "NockPetRevive", true)
+  wrap.revive.role = "revive"
+  wrap.mend = Pet.MakePetChip(wrap, "NockPetMend", true)
+  wrap.mend.role = "mend"
   wrap:Hide()
   return wrap
 end
@@ -3491,12 +3500,121 @@ function Pet.UpdatePetInfoStrip(wrap)
   end
 end
 
+-- 3.6.1: Call / Revive and Mend Pet tiles on the pet bar.
+-- Call Pet when nothing is out; Revive Pet when the pet is dead, including a
+-- dead pet that is no longer in the world (Call Pet fails, Revive casts).
+Pet.REVIVE_MACRO = "#showtooltip Revive Pet\n/cast [nopet] Call Pet\n/cast [@pet,dead][nopet] Revive Pet"
+Pet.CARE = {
+  revive = { button = "NockPetRevive", word = "Revive", names = { "Revive Pet", "Call Pet" },
+    book = "pet-call", cmds = { "MACRO Nock:Pet", "SPELL Revive Pet" } },
+  mend = { button = "NockPetMend", word = "Mend", names = { "Mend Pet" },
+    book = "Mend Pet", cmds = { "SPELL Mend Pet" } },
+}
+
+-- The key that does this tile's job: your own bind for the tile, then the key
+-- Nock's extra row gave it (Ctrl-G / Shift-G), then any key holding the spell.
+function Pet.CareKey(role)
+  local c = Pet.CARE[role]
+  if not c or not GetBindingKey then
+    return nil
+  end
+  local function key(cmd)
+    local ok, k = pcall(GetBindingKey, cmd)
+    if ok and type(k) == "string" and k ~= "" then
+      return k
+    end
+  end
+  local k = key("CLICK " .. c.button .. ":LeftButton")
+  if k then
+    return k
+  end
+  for _, r in ipairs(Book.lastRecs or {}) do
+    if r.id == c.book and r.key then
+      return r.key
+    end
+  end
+  for _, cmd in ipairs(c.cmds) do
+    k = key(cmd)
+    if k then
+      return k
+    end
+  end
+  return nil
+end
+
+function Pet.SetCareChip(cap, role)
+  if not cap then
+    return
+  end
+  local c = Pet.CARE[role]
+  local known
+  for _, n in ipairs(c.names) do
+    if PlayerKnows(n) then
+      known = n
+      break
+    end
+  end
+  cap.role = role
+  cap.known = known and true or false
+  local spell = (role == "revive") and (PlayerKnows("Revive Pet") and "Revive Pet" or known) or known
+  cap.spellName = spell
+  cap.spellID = nil
+  cap.entry = spell and { kind = "spell", name = spell } or nil
+  if not InCombat() then
+    if role == "revive" and known then
+      cap:SetAttribute("type", "macro")
+      cap:SetAttribute("type1", "macro")
+      cap:SetAttribute("macrotext", Pet.REVIVE_MACRO)
+      cap:SetAttribute("macrotext1", Pet.REVIVE_MACRO)
+    elseif known then
+      cap:SetAttribute("type", "spell")
+      cap:SetAttribute("spell", known)
+      cap:SetAttribute("type1", "spell")
+      cap:SetAttribute("spell1", known)
+    else
+      cap:SetAttribute("type", nil)
+      cap:SetAttribute("type1", nil)
+    end
+  end
+  if not known then
+    if cap.tag then
+      cap.tag:Hide()
+    end
+    if not InCombat() then
+      cap:Hide()
+    end
+    return
+  end
+  local _, icon = SpellData(spell)
+  local path = Pet.IconPath(icon) or (ICON_FALLBACK[spell] and ("Interface\\Icons\\" .. ICON_FALLBACK[spell]))
+  if path and cap.icon.SetTexture then
+    cap.icon:SetTexture(path)
+  elseif cap.icon.SetColorTexture then
+    cap.icon:SetColorTexture(0.15, 0.35, 0.2, 1)
+  end
+  if cap.tag then
+    local k = Pet.CareKey(role)
+    cap.tag:SetText(k and OverlayKeyLabel(k) or c.word)
+    cap.tag:Show()
+  end
+  Pet.PaintPetVisual(cap)
+  if not InCombat() then
+    cap:Show()
+  end
+end
+
+function Pet.CareKnown()
+  return PlayerKnows("Call Pet") or PlayerKnows("Revive Pet")
+end
+
 function Pet.UpdatePetSpellButtons(wrap)
   local trainName, trainID, trainIcon = Pet.KnownHunterSpell(Pet.TRAIN_NAMES, Pet.TRAIN_IDS)
   local feedName, feedID, feedIcon = Pet.KnownHunterSpell(Pet.FEED_NAMES, Pet.FEED_IDS)
   wrap.trainName, wrap.feedName = trainName, feedName
   Pet.SetSpellChip(wrap.train, trainName, trainID, trainIcon, "train")
   Pet.SetSpellChip(wrap.feed, feedName, feedID, feedIcon, "feed")
+  Pet.SetCareChip(wrap.revive, "revive")
+  Pet.SetCareChip(wrap.mend, "mend")
 end
 
 function Pet.UpdatePetButtonCooldown(cap)
@@ -3570,6 +3688,12 @@ function Pet.ForEachPetChip(fn)
   if wrap.feed and wrap.feed:IsShown() then
     fn(wrap.feed)
   end
+  if wrap.revive and wrap.revive:IsShown() then
+    fn(wrap.revive)
+  end
+  if wrap.mend and wrap.mend:IsShown() then
+    fn(wrap.mend)
+  end
 end
 
 function Pet.UpdatePetCooldowns()
@@ -3597,7 +3721,10 @@ function Pet.LayoutPet()
   if not wrap then
     return 0
   end
-  if not Pet.NockPetWanted() or not Pet.PlayerHasPet() then
+  -- 3.6.1: with no live pet (dead or not called) the bar stays up with
+  -- Call / Revive, so the pet can always be brought back from the bar.
+  local hasPet = Pet.PlayerHasPet()
+  if not Pet.NockPetWanted() or (not hasPet and not Pet.CareKnown()) then
     if not InCombat() then
       wrap:Hide()
       Pet.FitOverlayToStack()
@@ -3664,8 +3791,14 @@ function Pet.LayoutPet()
       shownAny = true
     end
   end
-  -- Train / Feed at the right, after a small gap, only if known.
+  -- Call / Revive, Mend, then Train / Feed at the right, only if known.
   local extras = {}
+  if wrap.revive and wrap.revive:IsShown() then
+    extras[#extras + 1] = wrap.revive
+  end
+  if wrap.mend and wrap.mend:IsShown() then
+    extras[#extras + 1] = wrap.mend
+  end
   if wrap.train and wrap.train:IsShown() then
     extras[#extras + 1] = wrap.train
   end
@@ -4343,7 +4476,8 @@ function Book.PetMacro(which)
     return "/petstay"
   end
   if which == "pet-call" then
-    return "#showtooltip Call Pet\n/cast [nopet] Call Pet\n/cast [@pet,dead] Revive Pet"
+    -- 3.6.1: [nopet] too, so a dead pet that is not in the world still revives.
+    return Pet.REVIVE_MACRO
   end
 end
 
@@ -4847,6 +4981,7 @@ function Book.LayoutExtra()
     return 0, 0
   end
   local recs = Book.Assign()
+  Book.lastRecs = recs -- pet bar key badges (Pet.CareKey)
   local visible, parked, trackPrevRec = {}, {}, nil
   for _, r in ipairs(recs) do
     if r.hidden and r.id == "track-prev" then
@@ -5669,6 +5804,8 @@ end
 Nock.ApplyFade = ApplyFade
 Nock.UpdateXPBar = UpdateXPBar
 Nock.UpdatePetBar = Pet.UpdatePetBar
+Nock.PetReviveMacro = Pet.REVIVE_MACRO
+Nock.Pet = Pet
 Nock.ApplyBarSize = ApplyBarSize
 Nock.BarKeys = BAR_KEYS_MOUSE
 Nock.BarKeysAll = BAR_KEYS_ALL

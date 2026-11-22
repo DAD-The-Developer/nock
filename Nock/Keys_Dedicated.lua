@@ -114,6 +114,7 @@ function D.KeyFor(e)
 end
 
 local pending = false
+local current = {} -- key -> button Nock has set as an override now
 function D.Apply()
   if InCombat() then
     pending = true
@@ -124,16 +125,42 @@ function D.Apply()
   if not o then
     return
   end
-  if ClearOverrideBindings then
-    pcall(ClearOverrideBindings, o)
-  end
+  local want = {}
   for _, e in ipairs(D.LIST) do
     MakeButton(e)
     e.applied = false
-    if e.btn and D.Enabled() and not D.UserKey(e) and RealAction(e.key) == "" and SetOverrideBindingClick then
-      local ok = pcall(SetOverrideBindingClick, o, false, e.key, e.button, "LeftButton")
-      e.applied = ok and true or false
+    if e.btn and D.Enabled() and not D.UserKey(e) and RealAction(e.key) == "" then
+      want[e.key] = e.button
+      e.applied = true
     end
+  end
+  -- 3.6.1: only touch overrides when something changed. Clearing and setting
+  -- them fires UPDATE_BINDINGS, which used to call Apply again (a loop).
+  local same = true
+  for k, v in pairs(want) do
+    if current[k] ~= v then
+      same = false
+    end
+  end
+  for k in pairs(current) do
+    if not want[k] then
+      same = false
+    end
+  end
+  if same then
+    return
+  end
+  if ClearOverrideBindings then
+    pcall(ClearOverrideBindings, o)
+  end
+  current = {}
+  for k, btn in pairs(want) do
+    if SetOverrideBindingClick and pcall(SetOverrideBindingClick, o, false, k, btn, "LeftButton") then
+      current[k] = btn
+    end
+  end
+  for _, e in ipairs(D.LIST) do
+    e.applied = current[e.key] == e.button
   end
 end
 

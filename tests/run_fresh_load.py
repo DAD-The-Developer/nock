@@ -14,8 +14,8 @@ TESTS = Path("/workspace/nock/tests")
 toc = (ROOT / "Nock.toc").read_text()
 if "## Interface: 16001" not in toc:
     sys.exit("TOC Interface is not 16001")
-if "## Version: 3.6.0" not in toc:
-    sys.exit("TOC Version is not 3.6.0")
+if "## Version: 3.6.1" not in toc:
+    sys.exit("TOC Version is not 3.6.1")
 
 lua_files = [
     line.strip()
@@ -84,8 +84,8 @@ def fail(msg):
 nock = g.Nock
 if not nock:
     fail("Nock global missing after load")
-if nock.Version != "3.6.0":
-    fail("Nock.Version is %r, expected 3.6.0" % (nock.Version,))
+if nock.Version != "3.6.1":
+    fail("Nock.Version is %r, expected 3.6.1" % (nock.Version,))
 
 theme = g.NockTheme
 if not theme:
@@ -123,7 +123,7 @@ if errs:
     fail("hunter tool errors on first login")
 if not g.NockFeedButton:
     fail("NockFeedButton (feed pet keybind) missing")
-# 3.6.0 dedicated Wing Clip / Hunter's Mark keys
+# 3.6.1 dedicated Wing Clip / Hunter's Mark keys
 if not g.NockWingClipButton or not g.NockMarkButton:
     fail("dedicated Wing Clip / Hunter's Mark buttons missing")
 if g.NockWingClipButton.GetAttribute(g.NockWingClipButton, "macrotext") != "/cast Wing Clip":
@@ -138,8 +138,15 @@ res = lua.execute(r'''
   -- free keys: both suggested
   GetBindingAction = function() return "" end
   GetBindingKey = function() return nil end
-  D.Apply()
+  D.SetEnabled(false); D.SetEnabled(true)
   assert(set["CAPSLOCK"] == "NockWingClipButton", "CAPSLOCK not suggested")
+  -- 3.6.1: no change means no Clear/Set (UPDATE_BINDINGS loop)
+  local clears = 0
+  local realClear = ClearOverrideBindings
+  ClearOverrideBindings = function(...) clears = clears + 1; return realClear(...) end
+  D.Apply(); D.Apply()
+  assert(clears == 0, "Apply re-set unchanged overrides (binding loop)")
+  ClearOverrideBindings = realClear
   assert(set["`"] == "NockMarkButton", "` not suggested")
   -- his own key on ` : Nock must not use it
   GetBindingAction = function(k) if k == "`" then return "TOGGLEAUTORUN" end return "" end
@@ -162,6 +169,9 @@ res = lua.execute(r'''
   -- switch off
   GetBindingKey = function() return nil end
   GetBindingAction = function() return "" end
+  set = {}
+  D.Apply()
+  assert(set["CAPSLOCK"] and set["`"], "suggestions not restored once keys are free")
   D.SetEnabled(false)
   assert(next(set) == nil, "suggestions stayed on when switched off")
   D.SetEnabled(true)
@@ -169,6 +179,10 @@ res = lua.execute(r'''
   NockCharDB.dedicatedKeys = nil
 ''')
 print("dedicated keys OK:", g.Nock.Dedicated.Summary())
+if not g.NockPetRevive or not g.NockPetMend:
+    fail("pet bar Call / Revive and Mend tiles missing (3.6.1)")
+if "[@pet,dead][nopet] Revive Pet" not in str(lua.eval("Nock.PetReviveMacro")):
+    fail("revive macro must revive a dead pet that is not in the world")
 
 # 3.5.0 alert manager
 alerts = nock.Alerts

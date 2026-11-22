@@ -22,6 +22,11 @@ If the game says it is out of date, enable "Load out of date AddOns"
 once, then tell me the interface number from /dump select(4, GetBuildInfo()).
 
 
+New in 3.6.1
+Call / Revive and Mend Pet are on the pet bar, and the pet bar stays up
+with Call / Revive when your pet is dead, so you can bring it back from
+the bar. Pet commands return once the pet is alive.
+
 New in 3.6.0
 Dedicated Wing Clip and Hunter's Mark keys that always cast your
 highest rank. Suggested: Caps Lock (Wing Clip) and ` (Hunter's Mark),
