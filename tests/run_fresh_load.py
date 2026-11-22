@@ -14,8 +14,8 @@ TESTS = Path("/workspace/nock/tests")
 toc = (ROOT / "Nock.toc").read_text()
 if "## Interface: 16001" not in toc:
     sys.exit("TOC Interface is not 16001")
-if "## Version: 3.5.1" not in toc:
-    sys.exit("TOC Version is not 3.5.1")
+if "## Version: 3.6.0" not in toc:
+    sys.exit("TOC Version is not 3.6.0")
 
 lua_files = [
     line.strip()
@@ -84,8 +84,8 @@ def fail(msg):
 nock = g.Nock
 if not nock:
     fail("Nock global missing after load")
-if nock.Version != "3.5.1":
-    fail("Nock.Version is %r, expected 3.5.1" % (nock.Version,))
+if nock.Version != "3.6.0":
+    fail("Nock.Version is %r, expected 3.6.0" % (nock.Version,))
 
 theme = g.NockTheme
 if not theme:
@@ -123,6 +123,53 @@ if errs:
     fail("hunter tool errors on first login")
 if not g.NockFeedButton:
     fail("NockFeedButton (feed pet keybind) missing")
+# 3.6.0 dedicated Wing Clip / Hunter's Mark keys
+if not g.NockWingClipButton or not g.NockMarkButton:
+    fail("dedicated Wing Clip / Hunter's Mark buttons missing")
+if g.NockWingClipButton.GetAttribute(g.NockWingClipButton, "macrotext") != "/cast Wing Clip":
+    fail("Wing Clip button must cast by name (highest rank)")
+if g.NockMarkButton.GetAttribute(g.NockMarkButton, "macrotext") != "/cast Hunter's Mark":
+    fail("Hunter's Mark button must cast by name (highest rank)")
+res = lua.execute(r'''
+  local D = Nock.Dedicated
+  local set = {}
+  SetOverrideBindingClick = function(owner, prio, key, btn) set[key] = btn end
+  ClearOverrideBindings = function() set = {} end
+  -- free keys: both suggested
+  GetBindingAction = function() return "" end
+  GetBindingKey = function() return nil end
+  D.Apply()
+  assert(set["CAPSLOCK"] == "NockWingClipButton", "CAPSLOCK not suggested")
+  assert(set["`"] == "NockMarkButton", "` not suggested")
+  -- his own key on ` : Nock must not use it
+  GetBindingAction = function(k) if k == "`" then return "TOGGLEAUTORUN" end return "" end
+  D.Apply()
+  assert(set["`"] == nil, "took a key he owns")
+  assert(set["CAPSLOCK"] == "NockWingClipButton")
+  -- he bound Wing Clip himself: no suggestion for it
+  GetBindingKey = function(c) if c == "CLICK NockWingClipButton:LeftButton" then return "SHIFT-W" end end
+  D.Apply()
+  assert(set["CAPSLOCK"] == nil, "suggested over his own Wing Clip key")
+  local k, how = D.KeyFor(D.LIST[1])
+  assert(k == "SHIFT-W" and how == "yours")
+  -- in combat: nothing changes
+  local prev = InCombatLockdown
+  InCombatLockdown = function() return true end
+  set = { sentinel = true }
+  D.Apply()
+  assert(set.sentinel, "changed binds in combat")
+  InCombatLockdown = prev
+  -- switch off
+  GetBindingKey = function() return nil end
+  GetBindingAction = function() return "" end
+  D.SetEnabled(false)
+  assert(next(set) == nil, "suggestions stayed on when switched off")
+  D.SetEnabled(true)
+  assert(set["CAPSLOCK"] and set["`"])
+  NockCharDB.dedicatedKeys = nil
+''')
+print("dedicated keys OK:", g.Nock.Dedicated.Summary())
+
 # 3.5.0 alert manager
 alerts = nock.Alerts
 if not alerts:

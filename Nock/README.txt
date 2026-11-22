@@ -22,6 +22,12 @@ If the game says it is out of date, enable "Load out of date AddOns"
 once, then tell me the interface number from /dump select(4, GetBuildInfo()).
 
 
+New in 3.6.0
+Dedicated Wing Clip and Hunter's Mark keys that always cast your
+highest rank. Suggested: Caps Lock (Wing Clip) and ` (Hunter's Mark),
+used only when those keys are empty. Set your own in Key Bindings >
+AddOns > Nock; switch in Options > Extras.
+
 New in 3.5.1
 Packaging: first CurseForge release via BigWigs packager; GPL-3.0 license.
 

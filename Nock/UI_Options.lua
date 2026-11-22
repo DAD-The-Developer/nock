@@ -370,6 +370,23 @@ local function Build(page)
   add("Remind me to spend talent points", "A button under the minimap while you have points to spend.",
     function() return DB().talentReminder ~= false end, function(on) DB().talentReminder = on; if S and S.UpdateTalentButton then S.UpdateTalentButton() end end)
 
+  -- 3.6.0: dedicated Wing Clip and Hunter's Mark keys (Keys_Dedicated.lua).
+  local DK = Nock.Dedicated
+  if DK then
+    add("Dedicated Wing Clip and Hunter's Mark keys",
+      "One key each that always casts your highest rank. Nock suggests Caps Lock for Wing Clip and ` (above Tab) for Hunter's Mark, only if those keys are empty and you have not picked your own. Pick your own in Key Bindings > AddOns > Nock. Nock never saves over your keybinds.",
+      function() return DK.Enabled() end, function(on) DK.SetEnabled(on); UI.Refresh() end)
+    local dk = child:CreateFontString(nil, "OVERLAY", "GameFontDisable")
+    EnsureFont(dk, math.max(13, (m.body or 16) - 2), "OUTLINE")
+    dk:SetPoint("TOPLEFT", 12, child._y + 8)
+    dk:SetWidth(cw - 24)
+    dk:SetJustifyH("LEFT")
+    dk:SetWordWrap(true)
+    dk:SetTextColor(0.70, 0.76, 0.68)
+    page.dedicatedHint = dk
+    child._y = child._y - 40
+  end
+
   local function Action(text, width, opts, dy)
     local b = L.PanelButton(child, text, width, opts)
     b:SetHeight(28)
@@ -465,6 +482,9 @@ L.RefreshPage.options = function(page)
   end
   if page.allBtn then
     page.allBtn:SetText((UI.IsSimple and UI.IsSimple()) and "More options" or "Fewer options")
+  end
+  if page.dedicatedHint and Nock.Dedicated then
+    page.dedicatedHint:SetText(Nock.Dedicated.Summary())
   end
   if page.keyHint then
     local k = NotesKey()

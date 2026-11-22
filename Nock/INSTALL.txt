@@ -1,4 +1,4 @@
-Installing Nock 3.5.1
+Installing Nock 3.6.0
 =====================
 
 Nock is a helper for Hunter characters in World of Warcraft: Forever.

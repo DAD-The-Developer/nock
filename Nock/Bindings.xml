@@ -17,6 +17,10 @@
   <Binding name="NOCK_QUIVER">
     Nock_ToggleQuiver()
   </Binding>
+  <Binding name="CLICK NockWingClipButton:LeftButton">
+  </Binding>
+  <Binding name="CLICK NockMarkButton:LeftButton">
+  </Binding>
   <Binding name="CLICK NockFeedButton:LeftButton">
   </Binding>
   <Binding name="NOCK_KIT">

@@ -2,6 +2,14 @@
 
 All notable changes to Nock from 3.0.11 onward. The addon folder's `Nock/README.txt` also has older notes.
 
+## 3.6.0
+
+Dedicated Wing Clip and Hunter's Mark keys.
+- Two new entries in Key Bindings > AddOns > Nock: "Wing Clip (highest rank you know)" and "Hunter's Mark (highest rank you know)". One press casts the top rank you have learned.
+- Left-hand suggestions: Caps Lock for Wing Clip (pinky, next to A) and ` (above Tab) for Hunter's Mark. Nock only uses a suggested key when that key is empty in your own bindings and you have not bound the entry yourself. It uses an override binding, so nothing is saved over your keybinds.
+- Options > Extras: "Dedicated Wing Clip and Hunter's Mark keys" switch, plus a line showing which key each one is on.
+- Mouse 4 Wing Clip and R Hunter's Mark from the keymap stay as they were.
+
 ## 3.5.1
 
 Packaging: first CurseForge release via BigWigs packager; GPL-3.0 license.
