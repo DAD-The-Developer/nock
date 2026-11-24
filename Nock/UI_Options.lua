@@ -401,7 +401,7 @@ local function Build(page)
     child._y = child._y - 8
     Section(child, "Keybind backup", 8, child._y, cw - 16)
     child._y = child._y - 40
-    add("Use my own keybinds", "Nock sets no keys at all (no Ctrl-G, Ctrl-Z, Caps Lock ...). Every Nock button shows the key you already use for that spell. Off: Nock's layout, on free keys only. Switching never changes your own keybinds. Also /nock binds own on | off.",
+    add("Use my own keybinds", "Nock sets no keys at all (no Ctrl-G, Ctrl-Z, Caps Lock ...). Every Nock button shows the key you already use for that spell. Off = " .. Nock.Binds.LAYOUT_TEXT .. " Also /nock binds own on | off.",
       function() return BK.Own() end, function(on) BK.SetOwn(on); UI.Refresh() end)
     local info = child:CreateFontString(nil, "OVERLAY", "GameFontDisable")
     EnsureFont(info, math.max(13, (m.body or 16) - 2), "OUTLINE")

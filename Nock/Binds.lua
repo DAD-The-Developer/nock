@@ -35,6 +35,8 @@ local B = {}
 Nock.Binds = B
 
 B.MAX_MANUAL = 5
+-- 3.8.1: the one plain description of Nock layout, used everywhere.
+B.LAYOUT_TEXT = "Nock layout: Nock's left-hand keys (e.g. Ctrl-G, Ctrl-Z, C, Z, X, V) take priority while it's on. Your own saved keybinds are never overwritten and come back when you switch to My own keybinds."
 B.ACCOUNT, B.CHARACTER = 1, 2
 
 local function DB()
@@ -211,7 +213,7 @@ function B.EnsureFirst()
   Say("saved a copy of all your keybinds (" .. snap.count .. " keys, " .. B.SetName(snap.set)
     .. " set). Get them back any time: /nock binds restore")
   if not B.Own() then
-    Say("Keys: Nock layout (free keys only). Rather keep your own keybinds? /nock binds own on, or Options > Keybind backup.")
+    Say(B.LAYOUT_TEXT .. " Switch: /nock binds own on, or Options > Keybind backup.")
   end
   return true
 end
@@ -405,7 +407,7 @@ function B.SetOwn(on, quiet)
   end
   if not quiet then
     Say(on and "Using your own keybinds. Nock sets no keys; each button shows the key you already use for it."
-      or "Nock layout is on. It only uses keys that are free; your own keybinds stay as they are.")
+      or ("Nock layout is on. " .. B.LAYOUT_TEXT:gsub("^Nock layout: ", "")))
   end
   if Nock.RefreshUI then
     pcall(Nock.RefreshUI)
@@ -562,7 +564,7 @@ function B.Slash(rest)
     for i, s in ipairs(list) do
       Say(B.Label(s, i))
     end
-    Say("Keys: " .. (B.Own() and "your own keybinds" or "Nock layout (free keys only)")
+    Say("Keys: " .. (B.Own() and "My own keybinds (Nock sets no keys)" or B.LAYOUT_TEXT)
       .. ".  /nock binds backup | restore [n] | own on|off")
   else
     Say("/nock binds list | backup | restore [n] | own on|off")

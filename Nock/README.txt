@@ -22,6 +22,11 @@ If the game says it is out of date, enable "Load out of date AddOns"
 once, then tell me the interface number from /dump select(4, GetBuildInfo()).
 
 
+New in 3.8.1
+Clearer key wording. Nock layout: Nock's left-hand keys (e.g. Ctrl-G,
+Ctrl-Z, C, Z, X, V) take priority while it's on. Your own saved keybinds
+are never overwritten and come back when you switch to My own keybinds.
+
 New in 3.8.0
 Your keybinds are backed up the first time 3.8.0 loads (/nock binds,
 Options > Keybind backup). "Use my own keybinds" makes Nock set no keys

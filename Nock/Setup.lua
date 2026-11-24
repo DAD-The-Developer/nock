@@ -525,7 +525,7 @@ local function BuildPopup()
   what:SetText("Binds your keys, fills your action bar and makes Nock's macros. Your old keys are saved: /nock restore undoes it.")
   f.what = what
 
-  -- 3.8.0: the one key question. Nock's layout (free keys only), or your
+  -- 3.8.0: the one key question. Nock's layout (its left-hand keys take priority while on), or your
   -- own keybinds (Nock sets no keys; buttons show the keys you use).
   local klabel = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
   EnsureFont(klabel, "GameFontNormal")
@@ -545,7 +545,7 @@ local function BuildPopup()
     b:SetHeight(26)
     return b
   end
-  f.keyNock = KeyChoice("Nock layout", false, "Nock puts its spells on free keys near WASD. Keys you already use stay yours.")
+  f.keyNock = KeyChoice("Nock layout", false, Nock.Binds and Nock.Binds.LAYOUT_TEXT or "Nock's left-hand keys take priority while it's on.")
   f.keyOwn = KeyChoice("My own keybinds", true, "Nock sets no keys at all. Every Nock button shows the key you already use for that spell. Your keybinds are backed up either way: /nock binds.")
   f.keyNock:SetPoint("LEFT", klabel, "RIGHT", 16, 0)
   f.keyOwn:SetPoint("LEFT", f.keyNock, "RIGHT", 8, 0)
@@ -624,7 +624,7 @@ function S.Paint()
   end
   if f.what then
     f.what:SetText(own and "Nock sets no keys. Its buttons show the keys you already use. Your keybinds are backed up: /nock binds."
-      or "Binds free keys, fills your action bar and makes Nock's macros. Your keybinds are backed up: /nock binds restore.")
+      or "Nock's left-hand keys take priority while on. Set me up also saves Nock's keys and bars into your keybinds; undo with /nock binds restore.")
   end
   L.UpdateButtonStates()
 end

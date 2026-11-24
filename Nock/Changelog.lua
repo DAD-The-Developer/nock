@@ -23,6 +23,15 @@ local IC = "Interface\\Icons\\"
 -- Each bullet is { text, icon } (icon optional).
 Nock.Changelog = {
   {
+    version = "3.8.1", date = "2026-11-23",
+    summary = "Clearer words for the two key choices.",
+    new = {},
+    improved = {},
+    fixed = {
+      { "Clearer keybind layout description: Nock's left-hand keys (e.g. Ctrl-G, Ctrl-Z, C, Z, X, V) take priority while Nock layout is on; your saved keybinds are never overwritten and come back when you switch to My own keybinds. 3.8.0 wrongly said \"free keys only\". How keys work did not change.", IC .. "INV_Misc_Key_03" },
+    },
+  },
+  {
     version = "3.8.0", date = "2026-11-23",
     summary = "Your keybinds are backed up, your own keys are a first-class choice, and every button reads range and cooldowns.",
     new = {
@@ -114,7 +123,7 @@ N.WELCOME = {
   summary = "A keyboard-first hunter HUD for WoW Forever.",
   new = {
     { "Your shots, pet and tools on one bar near WASD. Hover any button for what it does.", IC .. "Ability_Hunter_BeastTaming" },
-    { "Keys: let Nock use free keys, or keep your own keybinds. Your keybinds are backed up either way (/nock binds).", IC .. "INV_Misc_Key_03" },
+    { "Keys: Nock layout (Nock's left-hand keys take priority while it's on; your saved keybinds are never overwritten) or My own keybinds. Your keybinds are backed up either way (/nock binds).", IC .. "INV_Misc_Key_03" },
     { "Options are in the Nock window (/nock). /nock new shows what changed in each update.", IC .. "INV_Misc_Book_09" },
   },
   improved = {}, fixed = {},

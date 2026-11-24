@@ -2,6 +2,14 @@
 
 All notable changes to Nock from 3.0.11 onward. The addon folder's `Nock/README.txt` also has older notes.
 
+## 3.8.1
+
+Clearer words for the two key choices.
+
+### Fixed
+
+- Clearer keybind layout description: Nock's left-hand keys (e.g. Ctrl-G, Ctrl-Z, C, Z, X, V) take priority while Nock layout is on; your saved keybinds are never overwritten and come back when you switch to My own keybinds. 3.8.0 wrongly said "free keys only". How keys work did not change.
+
 ## 3.8.0
 
 Your keybinds are backed up, your own keys are a first-class choice, and every button reads range and cooldowns.
