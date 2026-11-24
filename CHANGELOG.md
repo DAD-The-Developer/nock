@@ -2,6 +2,33 @@
 
 All notable changes to Nock from 3.0.11 onward. The addon folder's `Nock/README.txt` also has older notes.
 
+## 3.8.0
+
+Your keybinds are backed up, your own keys are a first-class choice, and every button reads range and cooldowns.
+
+### New
+
+- Keybind backup. The first time 3.8.0 loads, Nock saves a copy of every keybind you have (both keys of each action, and whether you use account or character keybinds). That first copy is kept for good. /nock binds restore or Options > Keybind backup puts them back, after you confirm.
+- Use my own keybinds. Nock sets no keys at all, and every Nock button shows the key you already use for that spell. Pick it in Setup (Keys: Nock layout or My own keybinds), in Options, or with /nock binds own on.
+- A What's New window that opens once after an update (a short welcome on a new install). /nock new or Options > What's new opens it again.
+
+### Improved
+
+- Range on every button. Shots turn a calm red when the target is out of range or inside the dead zone; melee skills light up only in melee range; Mend Pet and Intimidation dim when your pet can't use them. Aspects, traps and Feign Death are never shaded.
+- Wing Clip button: lit in melee, a slow soft pulse in melee or the dead zone until the target is slowed, then the seconds left in the corner. Concussive Shot and Frost Trap count as slowed. Options can turn the pulse off.
+- Cooldowns: clean sweep with whole-second numbers, a faint sweep for the global cooldown, and one brief soft highlight when a long cooldown is ready and you can use it. Numbers and the highlight each have a switch in Options.
+- Range reads run on one shared timer and only while you have a target.
+
+### Details
+
+- Backup: GetNumBindings / GetBinding for every action plus GetBindingAction on every key and modifier (for direct spell / macro / item / click binds), GetCurrentBindingSet for the set. Stored in NockCharDB.keyBackup with date and character; the first copy is never overwritten, manual copies keep the newest 5. Taken at login and before any Nock key or override is set.
+- /nock binds list | backup | restore [n] | own on|off. Restore is out of combat only, asks with a StaticPopup, then SetBinding (or SetBindingSpell / Macro / Item / Click) and SaveBindings on the copy's set, and switches to "Use my own keybinds".
+- "Use my own keybinds" (NockCharDB.ownBinds) turns off Nock's override keys, the dedicated Caps Lock / ` suggestions, keep-up filling, old-key cleanup, the 2.1 key move and Set me up's binds. Switching never calls SetBinding or SaveBindings. Button badges come from the Nock Key Bindings entry, a SPELL / MACRO bind, or the action bar slot that holds the spell.
+- Range: C_Spell.IsSpellInRange, then C_ActionBar.IsActionInRange on the slot holding the spell, plus CheckInteractDistance for the dead zone. Wing Clip and slows from C_UnitAuras, with UnitDebuff as the fallback.
+- Options: Keybind backup section; "Countdown numbers on cooldowns", "Soft highlight when a cooldown is ready", "Range shading on every button"; range tool option "Soft pulse on the Wing Clip button".
+- GitHub release notes and the CurseForge changelog come from RELEASE_NOTES.md (tools/release_notes.py writes it from Nock/Changelog.lua).
+- New tests: tests/run_binds.py, tests/run_news.py.
+
 ## 3.7.1
 
 Rare tameable beasts on the map, and Tame Beast on the pet bar.

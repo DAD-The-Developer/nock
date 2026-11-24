@@ -47,6 +47,8 @@ Hunter trainers, pet trainers, stable masters and ammo vendors show on the minim
 
 A movable quiver counter (an ammo pouch in Gunsmith) shows your ammo in big numbers: green when stocked, yellow at half, red when low. Shift-drag to move; `/nock quiver`, `/nock quiver unlock | lock | reset`.
 
+**Keybinds** (3.8.0): Nock copies all your keybinds the first time 3.8.0 loads and keeps that copy for good. `/nock binds restore` (or Options > Keybind backup) puts them back after a confirm, out of combat. Choose **Nock layout** (free keys only) or **My own keybinds** (Nock sets no keys and each button shows the key you already use) in Setup, Options or `/nock binds own on|off`. Every button shows range (calm red out of range or in the dead zone; melee lit only in melee) and cooldowns, and `/nock new` opens the What's New window.
+
 The **Dashboard** (3.7.0) is one compact panel with free bag slots, ammo left (with about how many minutes of Auto Shot that is) and your tracked quests with objective progress. Park it in a corner or mirror it to a second monitor with OBS's Windowed Projector. `/nock dash` shows it; `/nock dash unlock | lock | reset | small | normal | large | solid`.
 
 ## Hunter tools (3.4.0)
@@ -66,6 +68,8 @@ Eleven small tools on one core (`Nock/Core.lua`): each is on by default, with it
 | `/nock train` | New trainer ranks on level up and the nearest trainer |
 | `/nock tracker` | Kills to level, XP/hour; gold/hour at 60 |
 | `/nock dash` | Dashboard: bags, ammo and tracked quests |
+| `/nock binds` | Keybind backup: `list`, `backup`, `restore [n]`, `own on\|off` |
+| `/nock new` | What's New in this version |
 | `/nock pvp` | Enemy player readout, trinket alerts, PvP field notes |
 | `/nock tools` | List, `mute`, `endgame auto/on/off`, `pvp on/off` |
 | `/nock unlock` / `lock` / `reset positions` | Move every Nock frame (3.4.1) |

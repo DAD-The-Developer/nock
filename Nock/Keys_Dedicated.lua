@@ -37,6 +37,9 @@ local function DB()
 end
 
 function D.Enabled()
+  if Nock.OwnBinds and Nock.OwnBinds() then
+    return false -- 3.8.0: "Use my own keybinds": no suggested keys
+  end
   return DB().dedicatedKeys ~= false
 end
 
@@ -121,6 +124,9 @@ function D.Apply()
     return
   end
   pending = false
+  if Nock.Binds and D.Enabled() then
+    Nock.Binds.EnsureFirst()
+  end
   local o = Owner()
   if not o then
     return

@@ -22,6 +22,13 @@ If the game says it is out of date, enable "Load out of date AddOns"
 once, then tell me the interface number from /dump select(4, GetBuildInfo()).
 
 
+New in 3.8.0
+Your keybinds are backed up the first time 3.8.0 loads (/nock binds,
+Options > Keybind backup). "Use my own keybinds" makes Nock set no keys
+and show the keys you already use. Every button reads range and
+cooldowns; Wing Clip pulses softly when you should clip. /nock new shows
+what changed.
+
 New in 3.7.1
 Rare beast pins say rare / rare elite, respawn time and spawn spots (with
 the share per spot where the data has one). Hover a pin on the world map

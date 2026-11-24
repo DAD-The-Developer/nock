@@ -73,6 +73,7 @@ local function UseCtrlN()
   if cur ~= "" and cur ~= nil then
     return L.Print("Ctrl-N already does " .. tostring(cur) .. ", so Nock left it alone. Pick a key in Key Bindings > AddOns > Nock.")
   end
+  if Nock.Binds then Nock.Binds.EnsureFirst() end
   if SetBinding and SetBinding(NOTES_KEY, "NOCK_NOTES") ~= false then
     if SaveBindings and GetCurrentBindingSet then
       SaveBindings(GetCurrentBindingSet())
@@ -237,6 +238,12 @@ local function Build(page)
     function() return G and G.Opt().numbers end, function(on) if G then G.SetNumbers(on) end end)
   add("Show cooldowns", "A dimmed button and a big number while it can't be used. The little pause after each shot still gets a sweep, but no number.",
     function() return DB().barCooldowns ~= false end, function(on) Nock.SetBarCooldowns(on) end)
+  add("   Countdown numbers on cooldowns", "Whole seconds on a button while its cooldown runs. Off: the sweep only.",
+    function() return DB().cdNumbers ~= false end, function(on) DB().cdNumbers = on and true or false end)
+  add("   Soft highlight when a cooldown is ready", "One brief, calm glow when an ability with a cooldown of 8 seconds or more comes back, only if you can use it right now (mana, range, a target).",
+    function() return DB().readyGlow ~= false end, function(on) DB().readyGlow = on and true or false end)
+  add("Range shading on every button", "Shots turn a calm red when the target is out of range or inside the dead zone; melee skills light up only in melee range; Mend Pet and Intimidation dim when your pet can't use them. Aspects, traps and Feign Death are never shaded.",
+    function() return DB().barTint ~= false end, function(on) Nock.SetBarTint(on) end)
   add("Restore Blizzard bars", "Shows the default action bars again. Nock's bar stays unless you turn it off. Waits until the fight ends if you are in combat.",
     function() return DB().hideBlizzardBars == false end,
     function(on)
@@ -388,6 +395,48 @@ local function Build(page)
     end
   end
 
+  -- 3.8.0: keybinds: Nock layout or your own, and the keybind backup.
+  local BK = Nock.Binds
+  if BK then
+    child._y = child._y - 8
+    Section(child, "Keybind backup", 8, child._y, cw - 16)
+    child._y = child._y - 40
+    add("Use my own keybinds", "Nock sets no keys at all (no Ctrl-G, Ctrl-Z, Caps Lock ...). Every Nock button shows the key you already use for that spell. Off: Nock's layout, on free keys only. Switching never changes your own keybinds. Also /nock binds own on | off.",
+      function() return BK.Own() end, function(on) BK.SetOwn(on); UI.Refresh() end)
+    local info = child:CreateFontString(nil, "OVERLAY", "GameFontDisable")
+    EnsureFont(info, math.max(13, (m.body or 16) - 2), "OUTLINE")
+    info:SetPoint("TOPLEFT", 12, child._y + 8)
+    info:SetWidth(cw - 24)
+    info:SetJustifyH("LEFT")
+    info:SetWordWrap(true)
+    info:SetTextColor(0.70, 0.76, 0.68)
+    page.backupInfo = info
+    child._y = child._y - 44
+    local bw = 180
+    local backup = L.PanelButton(child, "Back up now", bw, {
+      lock = false,
+      tip = "Saves a copy of every keybind you have now. Only reads; changes nothing. Nock keeps the first copy for good, plus your newest 5.",
+      onClick = function()
+        local _, msg = BK.Backup()
+        L.Print(msg)
+        UI.Refresh()
+      end,
+    })
+    backup:SetHeight(28)
+    backup:SetPoint("TOPLEFT", 12, child._y)
+    local restore = L.PanelButton(child, "Restore...", bw, {
+      lock = true,
+      tip = "Puts back every keybind from the first copy, after you confirm. Out of combat only. /nock binds restore 2 picks another copy (/nock binds list).",
+      onClick = function()
+        BK.ConfirmRestore(1)
+      end,
+    })
+    restore:SetHeight(28)
+    restore:SetPoint("LEFT", backup, "RIGHT", 10, 0)
+    page.backupBtn, page.restoreBtn = backup, restore
+    child._y = child._y - 44
+  end
+
   child._y = child._y - 8
   Section(child, "Extras", 8, child._y, cw - 16)
   child._y = child._y - 40
@@ -442,6 +491,15 @@ local function Build(page)
     end,
   })
   page.notesBtn = notes
+
+  Action("What's new", 220, {
+    tip = "What changed in this version of Nock, and earlier ones. Also /nock new.",
+    onClick = function()
+      if Nock.WhatsNew then
+        Nock.WhatsNew.Show("news")
+      end
+    end,
+  })
 
   local ctrln = Action("Use Ctrl-N", 220, {
     lock = true,
@@ -507,6 +565,17 @@ L.RefreshPage.options = function(page)
   end
   if page.allBtn then
     page.allBtn:SetText((UI.IsSimple and UI.IsSimple()) and "More options" or "Fewer options")
+  end
+  if page.backupInfo and Nock.Binds then
+    local BK = Nock.Binds
+    local list = BK.List()
+    local first = list[1]
+    if first then
+      page.backupInfo:SetText("First backup: " .. (first.date or "?") .. " (" .. (first.char or "?") .. ", " .. (first.count or 0)
+        .. " keys, " .. BK.SetName(first.set) .. " set)." .. (#list > 1 and ("  Latest: " .. (list[#list].date or "?") .. ".  " .. (#list - 1) .. " manual.") or ""))
+    else
+      page.backupInfo:SetText("No backup yet. Nock makes one as soon as the game has loaded your keybinds.")
+    end
   end
   if page.dedicatedHint and Nock.Dedicated then
     page.dedicatedHint:SetText(Nock.Dedicated.Summary())

@@ -12,7 +12,7 @@ Whenever Nock is updated:
 
 1. `git pull --rebase origin main` first, so any edits already pushed to GitHub are in the tree before you start.
 2. Make the change in `Nock/` (and `tests/` or `art/` if needed).
-3. Bump the version in `Nock/Nock.toc`, `Nock/Nock_Forever.toc`, `Nock.lua` (`VERSION`), the tests that assert the version, `CHANGELOG.md`, and the "New in" blurb in `Nock/README.txt`.
+3. Bump the version in `Nock/Nock.toc`, `Nock/Nock_Forever.toc`, `Nock.lua` (`VERSION`), the tests that assert the version, `CHANGELOG.md`, and the "New in" blurb in `Nock/README.txt`. Add the version's entry at the top of `Nock/Changelog.lua` (the in-game What's New window; New / Improved / Fixed), then run `python3 tools/release_notes.py` to write `RELEASE_NOTES.md`. The packager uses that file (`.pkgmeta` manual-changelog) as the GitHub release notes and the CurseForge changelog. `tests/run_news.py` fails if they drift apart.
 4. Run the tests:
 
        python3 tests/run_style.py
@@ -23,6 +23,8 @@ Whenever Nock is updated:
        python3 tests/run_window.py
        python3 tests/run_petbar.py
        python3 tests/run_dash.py
+       python3 tests/run_binds.py
+       python3 tests/run_news.py
 
 5. Optionally build a local shareable zip to check the contents:
 

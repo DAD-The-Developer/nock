@@ -18,7 +18,9 @@
 package-as: Nock
 
 manual-changelog:
-  filename: CHANGELOG.md
+  # 3.8.0: this version's notes only, written by tools/release_notes.py from
+  # Nock/Changelog.lua (the in-game What's New), for GitHub and CurseForge.
+  filename: RELEASE_NOTES.md
   markup-type: markdown
 
 move-folders:

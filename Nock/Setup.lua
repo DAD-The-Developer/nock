@@ -429,7 +429,7 @@ end
 
 -- Popup ------------------------------------------------------------------------------
 
-local W, H = 400, 236
+local W, H = 400, 290
 
 local function BuildPopup()
   if S.frame then
@@ -525,11 +525,41 @@ local function BuildPopup()
   what:SetText("Binds your keys, fills your action bar and makes Nock's macros. Your old keys are saved: /nock restore undoes it.")
   f.what = what
 
+  -- 3.8.0: the one key question. Nock's layout (free keys only), or your
+  -- own keybinds (Nock sets no keys; buttons show the keys you use).
+  local klabel = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  EnsureFont(klabel, "GameFontNormal")
+  klabel:SetPoint("TOPLEFT", 22, -172)
+  klabel:SetText("Keys")
+  local function KeyChoice(text, own, tip)
+    local b = L.PanelButton(f, text, 150, {
+      lock = true,
+      tip = tip,
+      onClick = function()
+        if Nock.Binds then
+          Nock.Binds.SetOwn(own)
+        end
+        S.Paint()
+      end,
+    })
+    b:SetHeight(26)
+    return b
+  end
+  f.keyNock = KeyChoice("Nock layout", false, "Nock puts its spells on free keys near WASD. Keys you already use stay yours.")
+  f.keyOwn = KeyChoice("My own keybinds", true, "Nock sets no keys at all. Every Nock button shows the key you already use for that spell. Your keybinds are backed up either way: /nock binds.")
+  f.keyNock:SetPoint("LEFT", klabel, "RIGHT", 16, 0)
+  f.keyOwn:SetPoint("LEFT", f.keyNock, "RIGHT", 8, 0)
+
   local go = L.PanelButton(f, "Nock: Set me up", 240, {
     height = 36, lock = true,
     tipTitle = "Nock: Set me up",
     tip = "One click: keys, bars and macros for the profile above. Out of combat only.",
     onClick = function()
+      if Nock.OwnBinds and Nock.OwnBinds() then
+        f:Hide()
+        Print("Using your own keybinds. Nock's buttons show your keys; it sets none. Change it any time in Options > Keybind backup.")
+        return
+      end
       S.Apply(S.Pick().key)
     end,
   })
@@ -580,6 +610,22 @@ function S.Paint()
   local why = S.choice and "your pick" or ("picked for level " .. Level())
   f.pline:SetText(p.label .. "  |cff999999(" .. why .. ")|r")
   f.reason:SetText(st.text or ("Everything is already set up. Clicking again re-applies " .. p.label .. "."))
+  local own = Nock.OwnBinds and Nock.OwnBinds() or false
+  if f.keyNock and f.keyOwn then
+    local on, off = own and f.keyOwn or f.keyNock, own and f.keyNock or f.keyOwn
+    if on.LockHighlight then on:LockHighlight() end
+    if off.UnlockHighlight then off:UnlockHighlight() end
+    local fon, foff = on.GetFontString and on:GetFontString(), off.GetFontString and off:GetFontString()
+    if fon and fon.SetTextColor then fon:SetTextColor(1, 0.82, 0) end
+    if foff and foff.SetTextColor then foff:SetTextColor(0.6, 0.6, 0.6) end
+  end
+  if f.go then
+    f.go:SetText(own and "Done: use my own keybinds" or "Nock: Set me up")
+  end
+  if f.what then
+    f.what:SetText(own and "Nock sets no keys. Its buttons show the keys you already use. Your keybinds are backed up: /nock binds."
+      or "Binds free keys, fills your action bar and makes Nock's macros. Your keybinds are backed up: /nock binds restore.")
+  end
   L.UpdateButtonStates()
 end
 
@@ -650,6 +696,9 @@ function S.KeepUpActive()
   local db = DB()
   -- 3.0: fill empty keys by themselves, even if the player never clicked
   -- setup. Restore-my-old-keys (setupDeclined) turns this off.
+  if Nock.OwnBinds and Nock.OwnBinds() then
+    return false -- 3.8.0: "Use my own keybinds": Nock fills no keys
+  end
   return db.autofill ~= false and not db.setupDeclined and IsHunter() and true or false
 end
 
@@ -1172,6 +1221,9 @@ function K.Pending()
   if not (Nock.IsHunter and Nock.IsHunter()) then
     return false
   end
+  if Nock.OwnBinds and Nock.OwnBinds() then
+    return false -- 3.8.0: own keybinds: nothing to migrate
+  end
   return (db.applied and db.appliedInfo and Profile() and db.km ~= KM) and true or false
 end
 
@@ -1220,9 +1272,10 @@ end
 function K.BindFree(p)
   local db = DB()
   p = p or Profile()
-  if not p or InCombat() then
+  if not p or InCombat() or (Nock.OwnBinds and Nock.OwnBinds()) then
     return 0, {}
   end
+  if Nock.Binds then Nock.Binds.EnsureFirst() end
   local _, newUser, layout = S.Scan(p)
   S.TellUser(newUser, layout)
   local n, added = 0, {}
@@ -1354,6 +1407,12 @@ function K.SetMouse(on)
     return false
   end
   on = on and true or false
+  if Nock.OwnBinds and Nock.OwnBinds() then
+    db.mouse = on -- 3.8.0: own keybinds: remember the choice, change no keys
+    Print("You use your own keybinds, so Nock changed no keys.")
+    return true
+  end
+  if Nock.Binds then Nock.Binds.EnsureFirst() end
   if K.Pending() then
     db.mouse = on
     return true

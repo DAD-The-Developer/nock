@@ -38,7 +38,7 @@ local M = Core.Register({
     { key = "indicator", label = "Show the melee / dead zone / too far readout" },
     { key = "wingclip", label = "Prompt Wing Clip, then step back, in melee" },
     { key = "falloff", label = "Alert when Wing Clip falls off a target still in melee" },
-    { key = "glow", label = "Make the Wing Clip key glow on Nock's bar when it is wanted" },
+    { key = "glow", label = "Soft pulse on the Wing Clip button in melee or the dead zone (until the target is slowed)" },
     { key = "flash", label = "Flash the screen edge in the dead zone" },
     { key = "far", label = "Show TOO FAR in combat" },
     { key = "quietGroup", label = "In dungeons and raids: readout only, no flashes" },
@@ -65,7 +65,11 @@ local function InRange(name)
       r = v
     end
   end
-  return Core.Flag(r)
+  r = Core.Flag(r)
+  if r == nil and Nock.SpellRange then
+    r = Nock.SpellRange(name) -- 3.8.0: falls back to the action bar slot (IsActionInRange)
+  end
+  return r
 end
 
 local function FirstReading(list)
@@ -126,6 +130,86 @@ local function AurasSecret()
     end
   end
   return false
+end
+
+-- 3.8.0: seconds left on a debuff on the target, 0 when it is not there,
+-- nil when the client won't say. C_UnitAuras first, then classic UnitDebuff.
+function M.AuraLeft(name, now)
+  now = now or Core.Now()
+  if AurasSecret() then
+    return nil
+  end
+  if C_UnitAuras and C_UnitAuras.GetAuraDataBySpellName then
+    local ok, data = pcall(C_UnitAuras.GetAuraDataBySpellName, "target", name, "HARMFUL")
+    if ok then
+      if type(data) == "table" then
+        local exp = Core.Number(data.expirationTime)
+        if exp and exp > 0 then
+          return math.max(0, exp - now)
+        end
+        return CLIP_DURATION
+      end
+      return 0
+    end
+  end
+  if UnitDebuff then
+    for i = 1, 40 do
+      local ok, n, _, _, _, _, exp = pcall(UnitDebuff, "target", i)
+      if not ok or not n then
+        break
+      end
+      if n == name then
+        exp = Core.Number(exp)
+        if exp and exp > 0 then
+          return math.max(0, exp - now)
+        end
+        return CLIP_DURATION
+      end
+    end
+    return 0
+  end
+  return nil
+end
+
+-- Slows that make a Wing Clip pointless right now (besides Wing Clip itself).
+M.SLOWS = { "Concussive Shot", "Frost Trap Aura", "Improved Wing Clip" }
+
+-- Is the target already slowed? Returns seconds left and the slow's name.
+function M.SlowRemaining(now)
+  local left, src = M.ClipRemaining(now)
+  if left and left > 0 then
+    return left, wingName, src
+  end
+  if src ~= "aura" then
+    local l = M.AuraLeft(wingName, now) -- classic UnitDebuff when C_UnitAuras is missing
+    if l and l > 0 then
+      return l, wingName, "aura"
+    end
+  end
+  for _, n in ipairs(M.SLOWS) do
+    local l = M.AuraLeft(n, now)
+    if l and l > 0 then
+      return l, n, "aura"
+    end
+  end
+  return 0, nil
+end
+
+-- Pure: Wing Clip button state from the zone and the target's slow.
+-- lit: in melee. pulse: wanted (melee or dead zone, not slowed). timer: slow left.
+function M.ClipButtonState(hostile, zone, slowLeft, knows, pulseOn)
+  if not hostile then
+    return { lit = false, pulse = false }
+  end
+  local slowed = slowLeft and slowLeft > 0
+  local st = { lit = zone == "melee", pulse = false }
+  if knows and pulseOn ~= false and not slowed and (zone == "melee" or zone == "deadzone") then
+    st.pulse = true
+  end
+  if slowed then
+    st.timer = slowLeft
+  end
+  return st
 end
 
 -- Returns remaining seconds (0 = not clipped) and the source ("aura" / "cast"),
@@ -317,23 +401,78 @@ end
 
 -- Key bar glow --------------------------------------------------------------------
 
-local glowing = {}
+local glowing, timed = {}, {}
 local function ClipCaps()
   local out = {}
   local ov = Nock.Overlay and Nock.Overlay()
   if not ov then
     return out
   end
-  for _, list in ipairs({ ov.caps or {}, ov.utilCaps or {} }) do
+  local lists = { ov.caps or {}, ov.utilCaps or {} }
+  if ov.extra and ov.extra.caps then
+    lists[#lists + 1] = ov.extra.caps
+  end
+  for _, list in ipairs(lists) do
     for _, cap in pairs(list) do
       local e = type(cap) == "table" and cap.entry
       local name = (cap.spellName and cap.spellName ~= "" and cap.spellName) or (e and e.name)
-      if type(name) == "string" and name:find(wingName, 1, true) then
+      if type(name) == "string" and name:find(wingName, 1, true) and (not cap.IsShown or cap:IsShown()) then
         out[#out + 1] = cap
       end
     end
   end
   return out
+end
+M.ClipCaps = ClipCaps
+
+-- 3.8.0: a calm pulse, run by the game's animation system (no Lua per frame):
+-- a soft warm ring breathing between 15% and 55% over 0.9 s.
+local function MakePulse(cap)
+  if cap.nockClipGlow or not cap.CreateTexture then
+    return cap.nockClipGlow
+  end
+  local g = cap:CreateTexture(nil, "OVERLAY")
+  g:SetPoint("TOPLEFT", -6, 6)
+  g:SetPoint("BOTTOMRIGHT", 6, -6)
+  g:SetTexture("Interface\\Buttons\\CheckButtonHilight")
+  if g.SetBlendMode then
+    g:SetBlendMode("ADD")
+  end
+  g:SetVertexColor(1, 0.82, 0.45)
+  g:SetAlpha(0.15)
+  g:Hide()
+  if g.CreateAnimationGroup then
+    local ag = g:CreateAnimationGroup()
+    if ag.SetLooping then
+      ag:SetLooping("BOUNCE")
+    end
+    local a = ag.CreateAnimation and ag:CreateAnimation("Alpha")
+    if a then
+      if a.SetFromAlpha then a:SetFromAlpha(0.15) end
+      if a.SetToAlpha then a:SetToAlpha(0.55) end
+      if a.SetDuration then a:SetDuration(0.9) end
+      if a.SetSmoothing then a:SetSmoothing("IN_OUT") end
+    end
+    g.anim = ag
+  end
+  cap.nockClipGlow = g
+  return g
+end
+
+local function MakeTimer(cap)
+  if cap.nockClipTime or not cap.CreateFontString then
+    return cap.nockClipTime
+  end
+  local fs = cap:CreateFontString(nil, "OVERLAY")
+  Font(fs, 11)
+  if fs.SetDrawLayer then
+    fs:SetDrawLayer("OVERLAY", 7)
+  end
+  fs:SetPoint("BOTTOMLEFT", cap.icon or cap, "BOTTOMLEFT", 3, 2)
+  fs:SetTextColor(0.62, 0.86, 0.66)
+  fs:Hide()
+  cap.nockClipTime = fs
+  return fs
 end
 
 local function SetGlow(on)
@@ -342,33 +481,53 @@ local function SetGlow(on)
   end
   if on then
     for _, cap in ipairs(ClipCaps()) do
-      if not cap.nockClipGlow and cap.CreateTexture then
-        local g = cap:CreateTexture(nil, "OVERLAY")
-        g:SetPoint("TOPLEFT", -6, 6)
-        g:SetPoint("BOTTOMRIGHT", 6, -6)
-        g:SetTexture("Interface\\Buttons\\CheckButtonHilight")
-        if g.SetBlendMode then
-          g:SetBlendMode("ADD")
+      local g = MakePulse(cap)
+      if g and not glowing[cap] then
+        g:Show()
+        if g.anim then
+          g.anim:Play()
+        else
+          g:SetAlpha(0.4)
         end
-        g:SetVertexColor(1, 0.8, 0.2)
-        cap.nockClipGlow = g
-      end
-      if cap.nockClipGlow then
-        local a = 0.55 + 0.45 * math.sin(Core.Now() * 8)
-        cap.nockClipGlow:SetAlpha(a)
-        cap.nockClipGlow:Show()
         glowing[cap] = true
       end
     end
   else
     for cap in pairs(glowing) do
-      if cap.nockClipGlow then
-        cap.nockClipGlow:Hide()
+      local g = cap.nockClipGlow
+      if g then
+        if g.anim then
+          g.anim:Stop()
+        end
+        g:Hide()
       end
       glowing[cap] = nil
     end
   end
 end
+M.SetGlow = SetGlow
+
+-- The slow's seconds left, small and muted in the button's corner.
+local function SetTimer(left)
+  if left and left > 0 then
+    for _, cap in ipairs(ClipCaps()) do
+      local fs = MakeTimer(cap)
+      if fs then
+        fs:SetText(string.format("%d", math.ceil(left)))
+        fs:Show()
+        timed[cap] = true
+      end
+    end
+  else
+    for cap in pairs(timed) do
+      if cap.nockClipTime then
+        cap.nockClipTime:Hide()
+      end
+      timed[cap] = nil
+    end
+  end
+end
+M.SetTimer = SetTimer
 
 -- Main tick -----------------------------------------------------------------------
 
@@ -384,9 +543,12 @@ end
 
 function M.Update()
   if not Core.HasHostileTarget() then
-    Hide()
-    SetGlow(false)
-    lastZone = nil
+    if lastZone ~= "none" then
+      Hide()
+      SetGlow(false)
+      SetTimer(nil)
+      lastZone = "none"
+    end
     return
   end
   local now = Core.Now()
@@ -441,7 +603,13 @@ function M.Update()
       Core.Flash(0.95, 0.45, 0.15, 0.6)
     end
   end
-  SetGlow(wantClip)
+  -- 3.8.0: the Wing Clip button pulses softly while a clip is wanted (melee
+  -- or the dead zone, target not slowed); once slowed it shows the time left.
+  local slowLeft = M.SlowRemaining(now)
+  local st = M.ClipButtonState(true, zone, slowLeft, knowsClip, Core.Get("range", "glow"))
+  M.lastState = st
+  SetGlow(st.pulse)
+  SetTimer(st.timer)
   lastZone = zone
 end
 
@@ -457,6 +625,7 @@ function M:Refresh()
   if not Core.Enabled("range") then
     Hide()
     SetGlow(false)
+    SetTimer(nil)
   end
 end
 

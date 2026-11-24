@@ -75,7 +75,7 @@
 ]]
 
 local ADDON_NAME = ...
-local VERSION = "3.7.1"
+local VERSION = "3.8.0"
 -- Keys, bars and macros last changed in 1.9.0; 2.0 is a new look only, so a
 -- character set up on 1.9.0 is not asked to set up again. 2.0.1's racial keys
 -- (Alt-1, Alt-E) are added by auto keep-up, only on keys that are free.
@@ -121,6 +121,19 @@ local MOUSE_NAME = {
 local function MouseOn()
   return not (NockCharDB and NockCharDB.mouse == false)
 end
+
+-- 3.8.0: "Use my own keybinds" and the first keybind backup (Binds.lua).
+-- RX: 3.8.0 helpers in one table (Lua 5.1 caps a chunk at 200 locals).
+local RX = {}
+function RX.Own()
+  return Nock.Binds and Nock.Binds.Own and Nock.Binds.Own() or false
+end
+function RX.BackupFirst()
+  if Nock.Binds and Nock.Binds.EnsureFirst then
+    pcall(Nock.Binds.EnsureFirst)
+  end
+end
+Nock.OwnBinds = RX.Own
 
 local function Print(msg)
   if Nock.capture then
@@ -605,9 +618,10 @@ local RETIRED_KEYS = {
 }
 
 local function RetireOldKeys()
-  if InCombatLockdown() then
+  if InCombatLockdown() or RX.Own() then
     return 0
   end
+  RX.BackupFirst()
   local cleared = 0
   local track = NockCharDB.nockKeys
   local ok, layout = pcall(LayoutFor, NockCharDB.spec or "bm")
@@ -634,6 +648,10 @@ local function ApplyLayout(spec)
   if InCombatLockdown() then
     return false, "Leave combat first — Nock only writes bars and binds when you are out of combat."
   end
+  if RX.Own() then
+    return false, "You chose \"Use my own keybinds\", so Nock sets no keys. Pick \"Nock layout\" in Options (or /nock binds own off) first."
+  end
+  RX.BackupFirst()
   if GetCursorInfo() then
     return false, "Clear whatever is on your cursor first."
   end
@@ -788,9 +806,10 @@ local function TryAutoFill()
   if Nock.KeepUpHandles and Nock.KeepUpHandles() then
     return
   end
-  if InCombatLockdown() then
+  if InCombatLockdown() or RX.Own() then
     return
   end
+  RX.BackupFirst()
   local spec = NockCharDB.spec or "marks"
   local layout = LayoutFor(spec)
   local added = 0
@@ -1684,10 +1703,24 @@ local function PaintChip(cap, key, entry)
   local userOwned = NockCharDB.userKeys and NockCharDB.userKeys[key] ~= nil
   local yours = known and cur ~= BindingCommand(entry) and ((entry.ifFree and cur ~= "") or userOwned) or false
   local mismatch = known and not yours and not KeyMatches(key, entry)
+  local own = RX.Own()
+  local ownKey
+  if own then
+    -- 3.8.0: your own keybinds: show the key you use for this spell, if any.
+    mismatch, yours = false, false
+    local sp = entry.kind == "macro" and (MacroSpell(entry) or nil) or entry.name
+    if entry.kind ~= "item" and Nock.Binds then
+      ownKey = Nock.Binds.OwnKey({ spell = sp, macro = entry.kind == "macro" and entry.name or nil })
+    end
+  end
   cap.known, cap.mismatch, cap.yours = known, mismatch, yours
+  cap.ownKey = ownKey
   SetChipAction(cap, entry, known)
   cap:Show()
   local label = yours and "" or OverlayKeyLabel(key)
+  if own then
+    label = ownKey and OverlayKeyLabel(ownKey) or ""
+  end
   cap.label:SetText(label)
   if not label or label == "" then
     cap.badge:Hide()
@@ -1709,7 +1742,7 @@ local function PaintChip(cap, key, entry)
   cap.bang:Hide() -- 3.0: no ! marks; his keys stay his, no setup nag
   if IsPetKey(entry) then cap.paw:Show() else cap.paw:Hide() end
   -- 2.1: a second, mouse badge when the mouse button really casts this too.
-  local twin = MOUSE_TWIN[key]
+  local twin = (not own) and MOUSE_TWIN[key] or nil
   local twinEntry = twin and cap.layout and cap.layout[twin]
   cap.twin = nil
   if known and twinEntry and KeyMatches(twin, twinEntry) then
@@ -1722,7 +1755,7 @@ local function PaintChip(cap, key, entry)
     cap.mbadge:SetWidth(math.max(18, mw + 8))
     cap.mbadge:Show()
     cap.mlabel:Show()
-  elseif known and Nock.DedicatedTwin and Nock.DedicatedTwin(entry, key) then
+  elseif known and not own and Nock.DedicatedTwin and Nock.DedicatedTwin(entry, key) then
     -- 3.6.3: second badge for the dedicated key (Caps Lock Wing Clip, ` Mark).
     local k = Nock.DedicatedTwin(entry, key)
     cap.mlabel:SetText(OverlayKeyLabel(k))
@@ -1769,6 +1802,13 @@ local cdTicker
 
 local function CooldownOpt()
   return BarDB().barCooldowns ~= false
+end
+-- 3.8.0: countdown numbers and the ready highlight can each be turned off.
+function Nock.NumbersOpt()
+  return BarDB().cdNumbers ~= false
+end
+function Nock.ReadyOpt()
+  return BarDB().readyGlow ~= false
 end
 
 local function TintOpt()
@@ -2001,15 +2041,24 @@ local function ClearCooldown(cap)
   cap.cdText:SetText("")
 end
 
+-- 3.8.0: one soft "ready" highlight, only for a real cooldown of RX.MIN
+-- seconds or more, and only when the spell can be used right now (mana,
+-- range and a valid target). No looping.
+RX.T, RX.A, RX.MIN = 0.8, 0.45, 8 -- ready highlight: seconds, start alpha, min cooldown
+
 local function ReadyFlash(cap)
   local f = cap.flash
   if not f then
     return
   end
-  cap.flashT = 0.6
+  if RX.ReadyAllowed and not RX.ReadyAllowed(cap) then
+    return
+  end
+  cap.flashT = RX.T
   f:Show()
-  f:SetAlpha(0.8)
+  f:SetAlpha(RX.A)
 end
+Nock.READY = RX
 
 -- Only pass numbers we can prove aren't secret into SetCooldown. Forever
 -- rejects secret start/duration from addon (tainted) code.
@@ -2070,16 +2119,16 @@ local function UpdateChipCooldown(cap)
   end
   -- Classify: "real" = long cooldown (swipe + our countdown), "gcd" = GCD
   -- only (swipe is fine, no number), nil = nothing running.
-  local readable, kind, finish = pcall(function()
+  local readable, kind, finish, length = pcall(function()
     local s, d = tonumber(start) or 0, tonumber(dur) or 0
     if s <= 0 or d <= 0 then
       return nil
     end
     if d > GCD_MAX then
-      return "real", s + d
+      return "real", s + d, d
     end
     -- GCD (or a 1s aspect swap): sweep only, never a countdown number.
-    return "gcd", s + d
+    return "gcd", s + d, d
   end)
   if not readable then
     -- Secret values: swipe via the duration-object API (never SetCooldown
@@ -2087,7 +2136,7 @@ local function UpdateChipCooldown(cap)
     -- because we cannot safely format a countdown ourselves.
     ApplyChipSwipe(cap, start, dur, mod, obj)
     if cap.cd and cap.cd.SetHideCountdownNumbers then
-      pcall(cap.cd.SetHideCountdownNumbers, cap.cd, false)
+      pcall(cap.cd.SetHideCountdownNumbers, cap.cd, not Nock.NumbersOpt())
     end
     cap.cdEnd = nil
     cap.cdText:SetText("")
@@ -2098,10 +2147,18 @@ local function UpdateChipCooldown(cap)
   end
   if kind == "real" then
     ApplyChipSwipe(cap, start, dur, mod, obj)
+    if cap.cd and cap.cd.SetSwipeColor then
+      pcall(cap.cd.SetSwipeColor, cap.cd, 0, 0.06, 0.03, 0.72)
+    end
     cap.cdEnd = finish
+    cap.cdDur = length
     cap.cdGcd = nil
   elseif kind == "gcd" then
     ApplyChipSwipe(cap, start, dur, mod, obj)
+    -- 3.8.0: a faint GCD sweep, much lighter than a real cooldown.
+    if cap.cd and cap.cd.SetSwipeColor then
+      pcall(cap.cd.SetSwipeColor, cap.cd, 0, 0.06, 0.03, 0.28)
+    end
     -- Sweep only: do not tick a number, and don't flash when the GCD ends.
     cap.cdEnd = nil
     cap.cdGcd = true
@@ -2185,29 +2242,198 @@ local function HasHostileTarget()
   return false
 end
 
-local function SpellOutOfRange(name)
-  if not name or not HasHostileTarget() then
-    return false
+
+-- 3.8.0: one range look for every Nock button.
+--   shot    ranged shots with a minimum range: tint when out of range or
+--           inside the dead zone (the client's own range check first).
+--   ranged  other targeted spells: tint only when out of range.
+--   melee   Raptor Strike, Mongoose Bite, Wing Clip, Counterattack...: lit
+--           only in melee range; dim with no hostile target.
+--   pet     Mend Pet (range to your pet), Intimidation (your pet needs a
+--           target), Bestial Wrath / Feed Pet (needs a pet): dim otherwise.
+--   self    aspects, traps, Feign Death, Rapid Fire, tracking...: never
+--           dimmed for range.
+-- Looks: "bright", "range" (calm red), "dim" (grey), "mana" (blue).
+-- On a real cooldown the look is darkened (CD_DIM) under the sweep.
+local CD_DIM = 0.38
+RX.KIND = {}
+Nock.RANGE_KIND = RX.KIND
+for _, n in ipairs({ "Auto Shot", "Arcane Shot", "Serpent Sting", "Concussive Shot", "Multi-Shot", "Aimed Shot",
+  "Viper Sting", "Scorpid Sting", "Distracting Shot", "Tranquilizing Shot", "Steady Shot" }) do
+  RX.KIND[n] = "shot"
+end
+for _, n in ipairs({ "Raptor Strike", "Mongoose Bite", "Wing Clip", "Counterattack", "Disengage", "Lacerate" }) do
+  RX.KIND[n] = "melee"
+end
+for _, n in ipairs({ "Mend Pet", "Intimidation", "Bestial Wrath", "Feed Pet", "Dismiss Pet", "Kill Command" }) do
+  RX.KIND[n] = "pet"
+end
+for _, n in ipairs({ "Feign Death", "Rapid Fire", "Deterrence", "Flare", "Volley", "Eagle Eye", "Eyes of the Beast",
+  "Trueshot Aura", "Call Pet", "Revive Pet", "Readiness" }) do
+  RX.KIND[n] = "self"
+end
+
+function Nock.RangeKind(name)
+  if type(name) ~= "string" then
+    return "self"
   end
+  local k = RX.KIND[name]
+  if k then
+    return k
+  end
+  if name:find("^Aspect of") or name:find("Trap$") or name:find("^Track ") then
+    return "self"
+  end
+  return "ranged"
+end
+
+-- Zone from readings (same rules as the range tool): melee / deadzone / far / ok / nil.
+function Nock.RangeZone(melee, ranged, close)
+  if melee == true then
+    return "melee"
+  end
+  if ranged == true then
+    return "ok"
+  end
+  if ranged == false then
+    return close == true and "deadzone" or "far"
+  end
+  if close == true then
+    return "deadzone"
+  end
+  return nil
+end
+
+function RX.SpellRange(name, unit)
   local r
   if C_Spell and C_Spell.IsSpellInRange then
-    local ok, v = pcall(C_Spell.IsSpellInRange, name, "target")
+    local ok, v = pcall(C_Spell.IsSpellInRange, name, unit or "target")
     if ok then
       r = v
     end
   elseif IsSpellInRange then
-    local ok, v = pcall(IsSpellInRange, name, "target")
+    local ok, v = pcall(IsSpellInRange, name, unit or "target")
     if ok then
       r = v
     end
   end
-  -- Only a clear out-of-range result counts. nil / secret / errors: no tint.
-  return ReadableFlag(r) == false
+  r = ReadableFlag(r)
+  if r == nil and (unit or "target") == "target" and Nock.Binds and Nock.Binds.FindSlot then
+    -- Fallback: the action bar slot holding the spell.
+    local inRange = (C_ActionBar and C_ActionBar.IsActionInRange) or IsActionInRange
+    if inRange then
+      local slot = Nock.Binds.FindSlot(name)
+      if slot then
+        local ok, v = pcall(inRange, slot, "target")
+        if ok then
+          r = ReadableFlag(v)
+        end
+      end
+    end
+  end
+  return r
+end
+Nock.SpellRange = RX.SpellRange
+
+function RX.UnitThere(unit)
+  if not UnitExists then
+    return false
+  end
+  local ok, v = pcall(UnitExists, unit)
+  return ok and ReadableFlag(v) == true
 end
 
--- Ready = bright. On a real cooldown = dimmed (range/mana tints still show
--- through, just darker). GCD swipe does not dim.
-local CD_DIM = 0.38
+-- Read once per pass, shared by every button.
+function Nock.RangeCtx()
+  local ctx = { hostile = HasHostileTarget(), pet = RX.UnitThere("pet") }
+  ctx.petTarget = ctx.pet and RX.UnitThere("pettarget")
+  if ctx.hostile then
+    local melee = RX.SpellRange("Raptor Strike")
+    if melee == nil then
+      melee = RX.SpellRange("Wing Clip")
+    end
+    local ranged = RX.SpellRange("Auto Shot")
+    local close
+    if CheckInteractDistance then
+      local ok, v = pcall(CheckInteractDistance, "target", 3)
+      close = ok and ReadableFlag(v) or nil
+    end
+    ctx.zone = Nock.RangeZone(melee, ranged, close)
+  end
+  return ctx
+end
+
+-- Pure: the look for one button. inRange is the client's reading for it
+-- (true / false / nil), petRange the reading against your pet.
+function Nock.ChipLook(kind, ctx, inRange, noMana, petRange, name)
+  ctx = ctx or {}
+  if noMana == true then
+    return "mana"
+  end
+  if kind == "self" then
+    return "bright"
+  end
+  if kind == "pet" then
+    if not ctx.pet then
+      return "dim"
+    end
+    if name == "Intimidation" and not ctx.petTarget then
+      return "dim"
+    end
+    if name == "Mend Pet" and petRange == false then
+      return "range"
+    end
+    return "bright"
+  end
+  if kind == "melee" then
+    if not ctx.hostile then
+      return "dim"
+    end
+    if inRange == true or (inRange == nil and ctx.zone == "melee") then
+      return "bright"
+    end
+    return "range"
+  end
+  if not ctx.hostile then
+    return "bright"
+  end
+  if inRange == false then
+    return "range"
+  end
+  if kind == "shot" and inRange == nil and (ctx.zone == "deadzone" or ctx.zone == "melee" or ctx.zone == "far") then
+    return "range"
+  end
+  return "bright"
+end
+
+Nock.LOOK_COLORS = {
+  bright = { 1, 1, 1 },
+  range = { 0.86, 0.38, 0.36 },
+  dim = { 0.6, 0.6, 0.6 },
+  mana = { 0.35, 0.45, 1 },
+}
+
+
+function RX.LookFor(cap)
+  local name = ChipSpell(cap)
+  local kind = cap.entry and cap.entry.kind
+  if not name or kind == "item" then
+    return "bright", "self"
+  end
+  local rk = Nock.RangeKind(name)
+  local ctx = RX.ctx or Nock.RangeCtx()
+  local inRange
+  if (rk == "shot" or rk == "ranged" or rk == "melee") and ctx.hostile then
+    inRange = RX.SpellRange(name)
+  end
+  local petRange
+  if rk == "pet" and name == "Mend Pet" and ctx.pet then
+    petRange = RX.SpellRange(name, "pet")
+  end
+  local _, noMana = SpellUsable(name)
+  return Nock.ChipLook(rk, ctx, inRange, ReadableFlag(noMana), petRange, name), rk, ctx
+end
+Nock.LookFor = RX.LookFor
 
 local function UpdateChipTint(cap)
   if not cap or not cap.icon then
@@ -2217,33 +2443,55 @@ local function UpdateChipTint(cap)
     cap.icon:SetVertexColor(1, 1, 1)
     return
   end
-  local name = TintOpt() and ChipSpell(cap)
-  local r, g, b = 1, 1, 1
-  -- Items (hearth, food) have no spell range. Never paint them red.
-  local kind = cap.entry and cap.entry.kind
-  if name and kind ~= "item" then
-    local ok, which = pcall(function()
-      if SpellOutOfRange(name) then
-        return "range"
-      end
-      local usable, noMana = SpellUsable(name)
-      -- Blue only when the API clearly says "not enough mana".
-      if ReadableFlag(noMana) == true then
-        return "mana"
-      end
-      return nil
-    end)
-    if ok and which == "range" then
-      r, g, b = 0.9, 0.25, 0.25
-    elseif ok and which == "mana" then
-      r, g, b = 0.35, 0.45, 1
+  local look = "bright"
+  if TintOpt() then
+    local ok, l = pcall(RX.LookFor, cap)
+    if ok and l then
+      look = l
     end
   end
+  cap.look = look
+  local c = Nock.LOOK_COLORS[look] or Nock.LOOK_COLORS.bright
+  local r, g, b = c[1], c[2], c[3]
   if cap.cdEnd then
     r, g, b = r * CD_DIM, g * CD_DIM, b * CD_DIM
   end
+  if cap.icon.SetDesaturated then
+    cap.icon:SetDesaturated(look == "dim")
+  end
   cap.icon:SetVertexColor(r, g, b)
 end
+
+RX.ReadyAllowed = function(cap)
+  if not Nock.ReadyOpt() then
+    return false
+  end
+  if (tonumber(cap.cdDur) or 0) < RX.MIN then
+    return false
+  end
+  if not cap.known then
+    return true -- pet bar tiles: no spell look to check
+  end
+  local ok, look, rk, ctx = pcall(RX.LookFor, cap)
+  if not ok then
+    return true
+  end
+  if look ~= "bright" then
+    return false
+  end
+  if (rk == "shot" or rk == "ranged" or rk == "melee") and not (ctx and ctx.hostile) then
+    return false -- needs a target to be usable
+  end
+  local name = ChipSpell(cap)
+  if name then
+    local usable = SpellUsable(name)
+    if ReadableFlag(usable) == false then
+      return false
+    end
+  end
+  return true
+end
+Nock.ReadyAllowed = RX.ReadyAllowed
 
 local function ForEachChip(fn)
   if not overlay then
@@ -2272,12 +2520,19 @@ end
 
 local function UpdateCooldowns()
   ForEachChip(UpdateChipCooldown)
-  ForEachChip(UpdateChipTint)
+  RX.TintPass()
   SafeBuild("pet", "pet bar", Pet.UpdatePetCooldowns)
 end
 
-local function UpdateTints()
+function RX.TintPass()
+  RX.ctx = Nock.RangeCtx()
   ForEachChip(UpdateChipTint)
+  RX.ctx = nil
+end
+Nock.TintPass = RX.TintPass
+
+local function UpdateTints()
+  RX.TintPass()
   if Book.UpdateMeleeGlow then
     Book.UpdateMeleeGlow()
   end
@@ -2296,13 +2551,24 @@ local function TickBar(_, elapsed)
   overlay.tintT = (overlay.tintT or 0) - elapsed
   local doTint = overlay.tintT <= 0
   if doTint then
-    overlay.tintT = 0.2
+    overlay.tintT = 0.15
+    -- 3.8.0: range reads only while you have a target. With none, one last
+    -- pass resets the looks, then the tint step idles.
+    if RX.UnitThere("target") then
+      overlay.tintDirty = true
+      RX.ctx = Nock.RangeCtx()
+    elseif overlay.tintDirty then
+      overlay.tintDirty = false
+      RX.ctx = Nock.RangeCtx()
+    else
+      doTint = false
+    end
   end
   ForEachChip(function(cap)
     if cap.cdEnd then
       local left = cap.cdEnd - now
       if left > 0 then
-        cap.cdText:SetText(FormatLeft(left))
+        cap.cdText:SetText(Nock.NumbersOpt() and FormatLeft(left) or "")
         if left < 5 then
           cap.cdText:SetTextColor(0.55, 1, 0.7)
         else
@@ -2320,7 +2586,7 @@ local function TickBar(_, elapsed)
         cap.flash:SetAlpha(0)
         cap.flash:Hide()
       else
-        cap.flash:SetAlpha(0.8 * cap.flashT / 0.6)
+        cap.flash:SetAlpha(RX.A * cap.flashT / RX.T)
       end
     end
     if doTint then
@@ -2331,7 +2597,7 @@ local function TickBar(_, elapsed)
     if cap.cdEnd then
       local left = cap.cdEnd - now
       if left > 0 then
-        cap.cdText:SetText(FormatLeft(left))
+        cap.cdText:SetText(Nock.NumbersOpt() and FormatLeft(left) or "")
         if left < 5 then
           cap.cdText:SetTextColor(0.55, 1, 0.7)
         else
@@ -2349,10 +2615,14 @@ local function TickBar(_, elapsed)
         cap.flash:SetAlpha(0)
         cap.flash:Hide()
       else
-        cap.flash:SetAlpha(0.8 * cap.flashT / 0.6)
+        cap.flash:SetAlpha(RX.A * cap.flashT / RX.T)
       end
     end
+    if doTint and cap.role == "mend" and cap.known then
+      UpdateChipTint(cap) -- Mend Pet: range to your pet
+    end
   end)
+  RX.ctx = nil
 end
 
 function Nock.SetBarCooldowns(on)
@@ -3705,15 +3975,15 @@ function Pet.UpdatePetButtonCooldown(cap)
     ClearCooldown(cap)
     return
   end
-  local readable, kind, finish = pcall(function()
+  local readable, kind, finish, length = pcall(function()
     local s, d = tonumber(start) or 0, tonumber(dur) or 0
     if s <= 0 or d <= 0 then
       return nil
     end
     if d > (GCD_MAX or 1.6) then
-      return "real", s + d
+      return "real", s + d, d
     end
-    return "gcd", s + d
+    return "gcd", s + d, d
   end)
   if not readable then
     ApplyChipSwipe(cap, start, dur, nil, obj)
@@ -3724,6 +3994,7 @@ function Pet.UpdatePetButtonCooldown(cap)
   if kind == "real" then
     ApplyChipSwipe(cap, start, dur, nil, obj)
     cap.cdEnd = finish
+    cap.cdDur = length
   elseif kind == "gcd" then
     ApplyChipSwipe(cap, start, dur, nil, obj)
     cap.cdEnd = nil
@@ -4638,6 +4909,9 @@ function Book.Assign()
   Book.ScanCache = known
   -- Spells already on the main bar (or Open Fire / Feign macros) are placed.
   local placed = Book.PlacedNames() or {}
+  if RX.Own() then
+    return Book.AssignOwn(known, placed)
+  end
   local usedKeys, usedNames, rows = {}, {}, {}
 
   local function take(key, id, label, group, hidden, quiet)
@@ -4726,6 +5000,90 @@ function Book.Assign()
   return rows
 end
 
+-- 3.8.0: "Use my own keybinds". The same tiles, each showing the key you
+-- already use for it (or none). Nock binds nothing.
+Book.PET_TOKEN = { ["pet-go"] = "PET_ACTION_ATTACK", ["pet-back"] = "PET_ACTION_FOLLOW", ["pet-stay"] = "PET_ACTION_WAIT" }
+function Book.OwnKeyFor(id)
+  local B = Nock.Binds
+  if not (B and B.OwnKey) or not id then
+    return nil
+  end
+  if id == "track-next" or id == "track-prev" then
+    return nil
+  end
+  if id == "melee" then
+    return B.OwnKey({ spell = "Raptor Strike", macro = "Nock:Melee" }) or B.OwnKey("Mongoose Bite")
+  end
+  if Book.PET_TOKEN[id] then
+    local cmds = {}
+    if id == "pet-go" then
+      cmds[1] = "PETATTACK"
+    end
+    if GetPetActionInfo then
+      for i = 1, 10 do
+        local ok, name = pcall(GetPetActionInfo, i)
+        if ok and name == Book.PET_TOKEN[id] then
+          cmds[#cmds + 1] = "BONUSACTIONBUTTON" .. i
+        end
+      end
+    end
+    return B.OwnKey({ cmds = cmds })
+  end
+  if id == "pet-call" then
+    return B.OwnKey({ button = "NockPetRevive", macro = "Nock:Pet", spell = "Revive Pet" }) or B.OwnKey("Call Pet")
+  end
+  return B.OwnKey({ spell = id })
+end
+
+function Book.AssignOwn(known, placed)
+  local rows, usedNames, byKey, seen = {}, {}, {}, {}
+  local function add(id, label, group, hidden, quiet)
+    if seen[id] then
+      return
+    end
+    seen[id] = true
+    local key = Book.OwnKeyFor(id)
+    if key then
+      byKey[key] = true
+    end
+    usedNames[id] = key
+    rows[#rows + 1] = { key = key, id = id, label = label, group = group, hidden = hidden, quiet = quiet, own = true }
+  end
+  for _, item in ipairs(Book.FIXED) do
+    if not Book.IsCoreKey(item.key) then
+      local id, label = Book.ResolveFixed(item, known)
+      if id then
+        add(id, label, item.group, item.hidden, item.quiet)
+        if id == "track-next" or id == "track-prev" then
+          for _, n in ipairs(Book.TrackList()) do
+            placed[n] = true
+          end
+        else
+          placed[id] = true
+        end
+        if id == "melee" then
+          placed["Raptor Strike"], placed["Mongoose Bite"] = true, true
+        end
+      end
+    end
+  end
+  local leftover = {}
+  for name in pairs(known) do
+    if not placed[name] and not Book.SKIP[name] and not Book.IsTrackName(name) then
+      leftover[#leftover + 1] = name
+    end
+  end
+  table.sort(leftover)
+  for _, name in ipairs(leftover) do
+    add(name, name, "more", false)
+  end
+  Book.assignment = rows
+  Book.byKey = byKey
+  Book.byName = usedNames
+  Book.leftoverUnbound = {}
+  return rows
+end
+
 -- The key that casts Wing Clip right now, for the tile badge.
 function Book.WingClipKey()
   local D = Nock.Dedicated
@@ -4740,6 +5098,9 @@ function Book.WingClipKey()
     if ok and type(k) == "string" and k ~= "" then
       return k
     end
+  end
+  if RX.Own() and Nock.Binds then
+    return Nock.Binds.OwnKey("Wing Clip") -- the action bar slot holding it
   end
   return nil
 end
@@ -4782,7 +5143,7 @@ function Book.CheatMap()
   end
   local out = {}
   for _, a in ipairs(Book.assignment or {}) do
-    if not a.hidden then
+    if not a.hidden and a.key then -- own keybinds: spells with no key of yours are left out
       out[#out + 1] = { key = a.key, label = a.label or a.id }
     end
   end
@@ -4807,7 +5168,7 @@ function Book.ClearBinds()
 end
 
 function Book.BindClick(key, buttonName)
-  if InCombat() or not key or not buttonName or not SetOverrideBindingClick then
+  if InCombat() or RX.Own() or not key or not buttonName or not SetOverrideBindingClick then
     return
   end
   pcall(SetOverrideBindingClick, Book.Owner(), true, key, buttonName)
@@ -5065,6 +5426,10 @@ function Book.ApplyBinds()
     return
   end
   Book.ClearBinds()
+  if RX.Own() then
+    return -- 3.8.0: your own keybinds, no Nock keys
+  end
+  RX.BackupFirst()
   local wrap = overlay and overlay.extra
   if not wrap then
     return
@@ -5972,6 +6337,7 @@ local FIELD_ORDER = {
 }
 
 local function RestoreKeys()
+  RX.BackupFirst()
   local ok, text = RestoreSnapshot(NockCharDB.snapshot)
   if ok then
     NockCharDB.applied = false
@@ -6304,6 +6670,7 @@ function Nock.BindEntry(key, entry)
   if entry.kind == "macro" and not EnsureMacro(entry) then
     return false, "Couldn't create the macro " .. entry.name .. " (your macro list may be full)."
   end
+  RX.BackupFirst()
   NockCharDB.snapshot = NockCharDB.snapshot or { keys = {}, slots = {}, time = time() }
   NockCharDB.snapshot.keys = NockCharDB.snapshot.keys or {}
   if NockCharDB.snapshot.keys[key] == nil then
@@ -6355,6 +6722,9 @@ SafeRegister("UNIT_PET_TRAINING_POINTS")
 
 ev:SetScript("OnEvent", function(_, event, arg1, ...)
   if event == "ADDON_LOADED" and arg1 == ADDON_NAME then
+    -- 3.8.0: a brand-new install has no saved Nock data at all (What's New
+    -- shows a short welcome then, not a changelog).
+    Nock.freshInstall = (NockDB == nil or next(NockDB) == nil) and (NockCharDB == nil or next(NockCharDB) == nil)
     NockDB = NockDB or {}
     NockCharDB = NockCharDB or {}
     if NockCharDB.overlay == nil then
