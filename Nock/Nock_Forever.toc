@@ -2,7 +2,7 @@
 ## Title: Nock
 ## Notes: Keyboard hunter hands, one-click BM/Marks profiles (keys, macros, talent plan) and written field manuals for World of Warcraft: Forever.
 ## Author: Nock
-## Version: 3.7.0
+## Version: 3.7.1
 ## X-Curse-Project-ID: 1820419
 ## SavedVariables: NockDB
 ## SavedVariablesPerCharacter: NockCharDB
@@ -32,6 +32,7 @@ Alerts.lua
 Data_Alerts.lua
 Data_Spells.lua
 Data_Pets.lua
+Data_TameSpawns.lua
 Data_Food.lua
 Data_Route.lua
 Data_PvP.lua

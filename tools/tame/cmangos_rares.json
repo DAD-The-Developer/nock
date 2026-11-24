@@ -1,0 +1,1080 @@
+{
+"Duskstalker": {
+"id": 14430,
+"n": 1,
+"resp": [
+[
+3600,
+7200
+]
+],
+"single": false,
+"pools": [],
+"groups": []
+},
+"Mazzranache": {
+"id": 3068,
+"n": 1,
+"resp": [
+[
+3600,
+7200
+]
+],
+"single": false,
+"pools": [],
+"groups": []
+},
+"Mother Fang": {
+"id": 471,
+"n": 1,
+"resp": [
+[
+3600,
+7200
+]
+],
+"single": true,
+"pools": [
+[
+"1073",
+"0",
+"1",
+"1"
+]
+],
+"groups": []
+},
+"The Rake": {
+"id": 5807,
+"n": 1,
+"resp": [
+[
+1800,
+5400
+]
+],
+"single": false,
+"pools": [],
+"groups": [
+[
+"19028",
+"1",
+"1",
+"0"
+]
+]
+},
+"Timber": {
+"id": 1132,
+"n": 3,
+"resp": [
+[
+3600,
+7200
+]
+],
+"single": true,
+"pools": [
+[
+"1052",
+"0",
+"1",
+"1"
+]
+],
+"groups": []
+},
+"Death Flayer": {
+"id": 5823,
+"n": 1,
+"resp": [
+[
+5400,
+9000
+]
+],
+"single": false,
+"pools": [],
+"groups": []
+},
+"Ressan the Needler": {
+"id": 10357,
+"n": 1,
+"resp": [
+[
+5400,
+9000
+]
+],
+"single": true,
+"pools": [
+[
+"1145",
+"0",
+"1",
+"1"
+]
+],
+"groups": []
+},
+"Bjarn": {
+"id": 1130,
+"n": 4,
+"resp": [
+[
+5400,
+9000
+]
+],
+"single": true,
+"pools": [
+[
+"1047",
+"0",
+"1",
+"1"
+]
+],
+"groups": []
+},
+"Dishu": {
+"id": 5865,
+"n": 1,
+"resp": [
+[
+5400,
+9000
+]
+],
+"single": false,
+"pools": [],
+"groups": []
+},
+"Gorefang": {
+"id": 12431,
+"n": 1,
+"resp": [
+[
+5400,
+9000
+]
+],
+"single": true,
+"pools": [
+[
+"1110",
+"0",
+"1",
+"1"
+]
+],
+"groups": []
+},
+"Shadowclaw": {
+"id": 2175,
+"n": 1,
+"resp": [
+[
+5400,
+9000
+]
+],
+"single": false,
+"pools": [],
+"groups": []
+},
+"Sri'skulk": {
+"id": 10359,
+"n": 1,
+"resp": [
+[
+5400,
+9000
+]
+],
+"single": true,
+"pools": [
+[
+"1147",
+"0",
+"1",
+"1"
+]
+],
+"groups": []
+},
+"Old Vicejaw": {
+"id": 12432,
+"n": 1,
+"resp": [
+[
+5400,
+9000
+]
+],
+"single": true,
+"pools": [
+[
+"1111",
+"0",
+"1",
+"1"
+]
+],
+"groups": []
+},
+"Krethis Shadowspinner": {
+"id": 12433,
+"n": 1,
+"resp": [
+[
+5400,
+9000
+]
+],
+"single": true,
+"pools": [
+[
+"1112",
+"0",
+"1",
+"1"
+]
+],
+"groups": []
+},
+"Lord Condar": {
+"id": 14268,
+"n": 4,
+"resp": [
+[
+14400,
+21600
+]
+],
+"single": true,
+"pools": [
+[
+"1090",
+"0",
+"1",
+"1"
+]
+],
+"groups": []
+},
+"Snort the Heckler": {
+"id": 5829,
+"n": 1,
+"resp": [
+[
+7200,
+10800
+]
+],
+"single": false,
+"pools": [],
+"groups": []
+},
+"Shanda the Spinner": {
+"id": 14266,
+"n": 1,
+"resp": [
+[
+14400,
+21600
+]
+],
+"single": true,
+"pools": [
+[
+"1088",
+"0",
+"1",
+"1"
+]
+],
+"groups": []
+},
+"Takk the Leaper": {
+"id": 5842,
+"n": 1,
+"resp": [
+[
+14400,
+21600
+]
+],
+"single": false,
+"pools": [],
+"groups": []
+},
+"Strider Clutchmother": {
+"id": 2172,
+"n": 1,
+"resp": [
+[
+14400,
+21600
+]
+],
+"single": false,
+"pools": [],
+"groups": []
+},
+"Large Loch Crocolisk": {
+"id": 2476,
+"n": 2,
+"resp": [
+[
+30600,
+45000
+]
+],
+"single": true,
+"pools": [
+[
+"1087",
+"0",
+"1",
+"1"
+]
+],
+"groups": []
+},
+"Mist Howler": {
+"id": 10644,
+"n": 2,
+"resp": [
+[
+30600,
+45000
+]
+],
+"single": false,
+"pools": [],
+"groups": []
+},
+"Chatter": {
+"id": 616,
+"n": 14,
+"resp": [
+[
+14400,
+21600
+]
+],
+"single": true,
+"pools": [
+[
+"1092",
+"0",
+"1",
+"1"
+]
+],
+"groups": []
+},
+"Humar the Pridelord": {
+"id": 5828,
+"n": 1,
+"resp": [
+[
+30600,
+45000
+]
+],
+"single": false,
+"pools": [],
+"groups": []
+},
+"Lupos": {
+"id": 521,
+"n": 16,
+"resp": [
+[
+14400,
+21600
+]
+],
+"single": true,
+"pools": [
+[
+"1055",
+"0",
+"1",
+"1"
+]
+],
+"groups": []
+},
+"Creepthess": {
+"id": 14279,
+"n": 1,
+"resp": [
+[
+30600,
+45000
+]
+],
+"single": true,
+"pools": [
+[
+"1082",
+"0",
+"1",
+"1"
+]
+],
+"groups": []
+},
+"Leech Widow": {
+"id": 1112,
+"n": 1,
+"resp": [
+[
+14400,
+21600
+]
+],
+"single": true,
+"pools": [
+[
+"1167",
+"0",
+"1",
+"1"
+]
+],
+"groups": []
+},
+"Azzere the Skyblade": {
+"id": 5834,
+"n": 1,
+"resp": [
+[
+14400,
+21600
+]
+],
+"single": false,
+"pools": [],
+"groups": []
+},
+"Vultros": {
+"id": 462,
+"n": 16,
+"resp": [
+[
+75600,
+115200
+]
+],
+"single": true,
+"pools": [
+[
+"1159",
+"0",
+"1",
+"1"
+]
+],
+"groups": []
+},
+"Big Samras": {
+"id": 14280,
+"n": 1,
+"resp": [
+[
+37800,
+57600
+]
+],
+"single": true,
+"pools": [
+[
+"1083",
+"0",
+"1",
+"1"
+]
+],
+"groups": []
+},
+"Naraxis": {
+"id": 574,
+"n": 1,
+"resp": [
+[
+18000,
+28800
+]
+],
+"single": true,
+"pools": [
+[
+"1057",
+"0",
+"1",
+"1"
+]
+],
+"groups": []
+},
+"Razormaw Matriarch": {
+"id": 1140,
+"n": 1,
+"resp": [
+[
+18000,
+28800
+]
+],
+"single": true,
+"pools": [
+[
+"1168",
+"0",
+"1",
+"1"
+]
+],
+"groups": []
+},
+"Ursol'lok": {
+"id": 12037,
+"n": 1,
+"resp": [
+[
+37800,
+57600
+]
+],
+"single": false,
+"pools": [],
+"groups": []
+},
+"Cranky Benj": {
+"id": 14223,
+"n": 1,
+"resp": [
+[
+115200,
+172800
+]
+],
+"single": false,
+"pools": [],
+"groups": []
+},
+"Giggler": {
+"id": 14228,
+"n": 1,
+"resp": [
+[
+37800,
+57600
+]
+],
+"single": false,
+"pools": [],
+"groups": []
+},
+"Araga": {
+"id": 14222,
+"n": 1,
+"resp": [
+[
+75600,
+115200
+]
+],
+"single": true,
+"pools": [
+[
+"1005",
+"0",
+"1",
+"1"
+]
+],
+"groups": []
+},
+"Vile Sting": {
+"id": 5937,
+"n": 1,
+"resp": [
+[
+115200,
+172800
+]
+],
+"single": false,
+"pools": [],
+"groups": []
+},
+"Broken Tooth": {
+"id": 2850,
+"n": 4,
+"resp": [
+[
+18000,
+28800
+]
+],
+"single": true,
+"pools": [
+[
+"1025",
+"0",
+"1",
+"1"
+]
+],
+"groups": []
+},
+"Dart": {
+"id": 14232,
+"n": 5,
+"resp": [
+[
+18000,
+28800
+]
+],
+"single": true,
+"pools": [
+[
+"1223",
+"0",
+"1",
+"1"
+]
+],
+"groups": []
+},
+"Ripscale": {
+"id": 14233,
+"n": 5,
+"resp": [
+[
+37800,
+57600
+]
+],
+"single": true,
+"pools": [
+[
+"1224",
+"0",
+"1",
+"1"
+]
+],
+"groups": []
+},
+"Darkmist Widow": {
+"id": 4380,
+"n": 1,
+"resp": [
+[
+18000,
+28800
+]
+],
+"single": false,
+"pools": [],
+"groups": []
+},
+"Hayoc": {
+"id": 14234,
+"n": 2,
+"resp": [
+[
+37800,
+57600
+]
+],
+"single": true,
+"pools": [
+[
+"1225",
+"0",
+"1",
+"1"
+]
+],
+"groups": []
+},
+"Kurmokk": {
+"id": 14491,
+"n": 1,
+"resp": [
+[
+115200,
+172800
+]
+],
+"single": false,
+"pools": [],
+"groups": []
+},
+"Old Cliff Jumper": {
+"id": 8211,
+"n": 1,
+"resp": [
+[
+37800,
+57600
+]
+],
+"single": true,
+"pools": [
+[
+"1130",
+"0",
+"1",
+"1"
+]
+],
+"groups": []
+},
+"Snarler": {
+"id": 5356,
+"n": 1,
+"resp": [
+[
+18000,
+28800
+]
+],
+"single": false,
+"pools": [],
+"groups": []
+},
+"Murderous Blisterpaw": {
+"id": 8208,
+"n": 1,
+"resp": [
+[
+115200,
+172800
+]
+],
+"single": false,
+"pools": [],
+"groups": []
+},
+"Old Grizzlegut": {
+"id": 5352,
+"n": 2,
+"resp": [
+[
+115200,
+172800
+]
+],
+"single": false,
+"pools": [],
+"groups": [
+[
+"8000",
+"1",
+"2",
+"0"
+]
+]
+},
+"Greater Firebird": {
+"id": 8207,
+"n": 1,
+"resp": [
+[
+75600,
+115200
+]
+],
+"single": false,
+"pools": [],
+"groups": []
+},
+"Rekk'tilac": {
+"id": 8277,
+"n": 5,
+"resp": [
+[
+75600,
+115200
+]
+],
+"single": true,
+"pools": [
+[
+"1099",
+"0",
+"1",
+"1"
+]
+],
+"groups": []
+},
+"Arash-ethis": {
+"id": 5349,
+"n": 1,
+"resp": [
+[
+18000,
+28800
+]
+],
+"single": false,
+"pools": [],
+"groups": []
+},
+"Death Howl": {
+"id": 14339,
+"n": 4,
+"resp": [
+[
+75600,
+115200
+]
+],
+"single": true,
+"pools": [
+[
+"25507",
+"0",
+"1",
+"1"
+]
+],
+"groups": []
+},
+"Grunter": {
+"id": 8303,
+"n": 18,
+"resp": [
+[
+115200,
+172800
+]
+],
+"single": true,
+"pools": [
+[
+"1036",
+"0",
+"1",
+"1"
+]
+],
+"groups": []
+},
+"Mongress": {
+"id": 14344,
+"n": 4,
+"resp": [
+[
+115200,
+172800
+]
+],
+"single": true,
+"pools": [
+[
+"1212",
+"0",
+"1",
+"1"
+]
+],
+"groups": []
+},
+"Sewer Beast": {
+"id": 3581,
+"n": 2,
+"resp": [
+[
+115200,
+172800
+]
+],
+"single": true,
+"pools": [
+[
+"1113",
+"0",
+"1",
+"1"
+]
+],
+"groups": []
+},
+"Ironback": {
+"id": 8213,
+"n": 1,
+"resp": [
+[
+37800,
+57600
+]
+],
+"single": true,
+"pools": [
+[
+"1132",
+"0",
+"1",
+"1"
+]
+],
+"groups": []
+},
+"Ravage": {
+"id": 8300,
+"n": 14,
+"resp": [
+[
+37800,
+57600
+]
+],
+"single": true,
+"pools": [
+[
+"1033",
+"0",
+"1",
+"1"
+]
+],
+"groups": []
+},
+"Olm the Wise": {
+"id": 14343,
+"n": 1,
+"resp": [
+[
+75600,
+115200
+]
+],
+"single": false,
+"pools": [],
+"groups": []
+},
+"Spiteflayer": {
+"id": 8299,
+"n": 1,
+"resp": [
+[
+37800,
+57600
+]
+],
+"single": true,
+"pools": [],
+"groups": [
+[
+"262",
+"1",
+"1",
+"1"
+]
+]
+},
+"Uhk'loc": {
+"id": 6585,
+"n": 1,
+"resp": [
+[
+18000,
+28800
+]
+],
+"single": false,
+"pools": [],
+"groups": []
+},
+"Deathmaw": {
+"id": 10077,
+"n": 4,
+"resp": [
+[
+18000,
+28800
+]
+],
+"single": true,
+"pools": [
+[
+"1044",
+"0",
+"1",
+"1"
+]
+],
+"groups": []
+},
+"Zaricotl": {
+"id": 2931,
+"n": 3,
+"resp": [
+[
+18000,
+28800
+]
+],
+"single": true,
+"pools": [
+[
+"1026",
+"0",
+"1",
+"1"
+]
+],
+"groups": []
+},
+"Krellack": {
+"id": 14476,
+"n": 1,
+"resp": [
+[
+37800,
+57600
+]
+],
+"single": false,
+"pools": [],
+"groups": []
+},
+"Gretheer": {
+"id": 14472,
+"n": 1,
+"resp": [
+[
+115200,
+172800
+]
+],
+"single": false,
+"pools": [],
+"groups": []
+},
+"Rak'shiri": {
+"id": 10200,
+"n": 1,
+"resp": [
+[
+37800,
+57600
+]
+],
+"single": false,
+"pools": [],
+"groups": []
+}
+}

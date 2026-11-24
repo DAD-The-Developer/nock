@@ -33,7 +33,7 @@ POINTS = { 21, 5, 0 }
 Nock.TraitPointsByTab = function() return POINTS[1], POINTS[2], POINTS[3] end
 
 local FILES = {
-  "PinsData.lua", "HunterMap.lua", "Quiver.lua", "Core.lua", "Movers.lua", "Alerts.lua", "Data_Alerts.lua", "Data_Spells.lua", "Data_Pets.lua", "Data_Food.lua", "Data_Route.lua",
+  "PinsData.lua", "HunterMap.lua", "Quiver.lua", "Core.lua", "Movers.lua", "Alerts.lua", "Data_Alerts.lua", "Data_Spells.lua", "Data_Pets.lua", "Data_TameSpawns.lua", "Data_Food.lua", "Data_Route.lua",
   "Tool_PetCare.lua", "Tool_Supplies.lua", "Tool_Vendor.lua", "Tool_Range.lua", "Tool_Taming.lua", "Tool_Aspects.lua",
   "Tool_Feign.lua", "Tool_Guide.lua", "Tool_Trainer.lua", "Tool_Tracker.lua", "Data_PvP.lua", "Tool_PvP.lua",
 }
@@ -285,6 +285,35 @@ check(#Tm.NearRares(24, false) > 0, "rares near level 24")
 local counts, total = Nock.Pins.Counts()
 check((counts["tame:AH"] or 0) >= 60, "rare beasts added as pins (" .. tostring(counts["tame:AH"]) .. ")")
 check(Nock.Pins.KINDS[#Nock.Pins.KINDS].id == "tame", "tame pin kind registered")
+-- 3.7.1 rare spawn facts
+check(Tm.RespawnText({ 3600, 7200 }) == "1-2 h", "respawn 1-2 h: " .. tostring(Tm.RespawnText({ 3600, 7200 })))
+check(Tm.RespawnText({ 5400, 9000 }) == "1.5-2.5 h", "respawn 1.5-2.5 h")
+check(Tm.RespawnText({ 1800, 5400 }) == "30 min - 1.5 h", "respawn 30 min - 1.5 h: " .. tostring(Tm.RespawnText({ 1800, 5400 })))
+local lupos = Tm.Spawn("Lupos")
+check(lupos and lupos.rank == 4 and lupos.spots == 16 and lupos.pct == 6 and lupos.one, "Lupos: rare, 16 spots, one up, 6% each")
+local ll = table.concat(Tm.SpawnLines(lupos), "|")
+check(ll:find("Rare spawn", 1, true) and ll:find("Respawn: 4-6 h", 1, true) and ll:find("about 6%% at each") and ll:find("Chance it is up now: unknown", 1, true), "Lupos tooltip lines: " .. ll)
+local takk = table.concat(Tm.SpawnLines(Tm.Spawn("Takk the Leaper")), "|")
+check(takk:find("Rare elite spawn", 1, true) and takk:find("Patrols", 1, true) and not takk:find("%%"), "Takk: rare elite, patrol, no % (one spot)")
+local mist = table.concat(Tm.SpawnLines(Tm.Spawn("Mist Howler")), "|")
+check(mist:find("Spawn spots: 2", 1, true) and not mist:find("%%") and not mist:find("one up", 1, true), "Mist Howler: 2 unpooled spots, no %")
+check(table.concat(Tm.SpawnLines({ rank = 0 }), "|"):find("Common spawn", 1, true), "non-rare says Common spawn")
+local npct = 0
+for _, sp in pairs(Nock.Data.TameSpawns) do
+  if sp.pct then
+    npct = npct + 1
+    check(sp.one and sp.spots > 1 and sp.pct == math.floor(100 / sp.spots + 0.5), "pct is 100/spots only for one-up pools")
+  end
+end
+check(npct == 16, "16 rares with a per-spot share, got " .. npct)
+local mx, my = Tm.Medoid({ 10, 10, 50, 50, 52, 52, 90, 90 })
+check(mx == 50 and my == 50, "medoid pin spot")
+local kdef = Nock.Pins.KINDS[#Nock.Pins.KINDS]
+local ovd = kdef.overlay({ name = "Lupos" }, 1431)
+check(ovd and #ovd.pts == 32, "overlay: 16 Lupos spots on Duskwood")
+check(kdef.overlay({ name = "Lupos" }, 1429) == nil, "overlay: nothing on another map")
+local ovt = kdef.overlay({ name = "Takk the Leaper" }, 1413)
+check(ovt and #ovt.paths == 1 and #ovt.paths[1] >= 4, "overlay: Takk patrol path")
 
 -- 6 Aspects -----------------------------------------------------------------------------------------------
 local As = Core.Module("aspects")

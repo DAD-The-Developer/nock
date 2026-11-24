@@ -25,6 +25,8 @@
   </Binding>
   <Binding name="CLICK NockPetMend:LeftButton">
   </Binding>
+  <Binding name="CLICK NockPetTame:LeftButton">
+  </Binding>
   <Binding name="CLICK NockFeedButton:LeftButton">
   </Binding>
   <Binding name="NOCK_KIT">

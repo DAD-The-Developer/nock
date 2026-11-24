@@ -22,6 +22,12 @@ If the game says it is out of date, enable "Load out of date AddOns"
 once, then tell me the interface number from /dump select(4, GetBuildInfo()).
 
 
+New in 3.7.1
+Rare beast pins say rare / rare elite, respawn time and spawn spots (with
+the share per spot where the data has one). Hover a pin on the world map
+to see every spot and its patrol path; click to keep it. Tame Beast is
+on the pet bar next to Call / Revive.
+
 New in 3.7.0
 The Dashboard: free bag slots, ammo left (and minutes of Auto Shot) and
 your tracked quests with progress, in one panel. /nock dash to show it,

@@ -4,6 +4,10 @@
   * Rare and notable tameable beasts (Data_Pets.lua TameRares) as paw pins
     on the world map and minimap, filtered to your level band (or all).
     Hover a pin for family, level, abilities and attack speed.
+  * 3.7.1: the pin also says rare / rare elite, the respawn range, how many
+    spawn spots it has (and the share per spot when only one can be up and
+    the spot is random), and hovering or clicking it on the world map marks
+    every spot and draws its patrol path (Data_TameSpawns.lua).
   * Your pet's abilities against its family's list: what it knows, the next
     rank it is old enough for, and which beasts teach it (tame one, use the
     ability until you learn it, then teach your pet at Beast Training).
@@ -69,6 +73,91 @@ local function AbilityText(fam)
   return table.concat(parts, ", ")
 end
 
+-- 3.7.1: spawn facts per rare (Data_TameSpawns.lua, generated from
+-- QuestieDB Forever spawns/paths and CMaNGOS classic-db respawn and pool
+-- data; see tools/tame/gen_tame370.py). No number here is estimated.
+local function Spawn(name)
+  local D = Nock.Data or {}
+  return D.TameSpawns and D.TameSpawns[name]
+end
+M.Spawn = Spawn
+
+-- "1.5-2.5 h", "45 min-1.5 h" (pure, tested).
+local function Hours(sec)
+  local h = sec / 3600
+  if h < 1 then
+    return string.format("%d min", math.floor(sec / 60 + 0.5)), false
+  end
+  local s = (h == math.floor(h)) and string.format("%d", h) or string.format("%.1f", h)
+  return s, true
+end
+function M.RespawnText(resp)
+  if type(resp) ~= "table" or not resp[1] then
+    return nil
+  end
+  local a, ah = Hours(resp[1])
+  local b, bh = Hours(resp[2] or resp[1])
+  if resp[1] == (resp[2] or resp[1]) then
+    return a .. (ah and " h" or "")
+  end
+  if ah and bh then
+    return a .. "-" .. b .. " h"
+  end
+  return a .. (ah and " h" or "") .. " - " .. b .. (bh and " h" or "")
+end
+
+-- Tooltip lines about how the beast spawns (pure, tested).
+function M.SpawnLines(sp)
+  local out = {}
+  if not sp then
+    return out
+  end
+  if sp.rank == 2 then
+    out[#out + 1] = "|cffffd200Rare elite spawn|r"
+  elseif sp.rank == 4 then
+    out[#out + 1] = "|cffffd200Rare spawn|r"
+  else
+    out[#out + 1] = "Common spawn"
+  end
+  local resp = M.RespawnText(sp.resp)
+  if resp then
+    out[#out + 1] = "Respawn: " .. resp .. " after it dies"
+  end
+  local spots = sp.spots or 0
+  if sp.pct then
+    out[#out + 1] = string.format("Spawn spots: %d, one up at a time, about %d%% at each", spots, sp.pct)
+  elseif spots > 1 then
+    out[#out + 1] = string.format("Spawn spots: %d%s", spots, sp.one and ", one up at a time" or "")
+  end
+  local paths = 0
+  for _, m in pairs(sp.maps or {}) do
+    paths = paths + #(m.paths or {})
+  end
+  if paths > 0 then
+    out[#out + 1] = "Patrols: path drawn on the map"
+  end
+  out[#out + 1] = "Chance it is up now: unknown"
+  out[#out + 1] = "|cff8c9690Hover or click the pin for every spot. Classic data; Forever may differ.|r"
+  return out
+end
+
+-- Representative pin spot for one map: the spawn point closest to the
+-- others (pure, tested).
+function M.Medoid(pts)
+  local best, bx, by = nil, pts[1], pts[2]
+  for i = 1, #pts - 1, 2 do
+    local d = 0
+    for j = 1, #pts - 1, 2 do
+      local dx, dy = pts[i] - pts[j], pts[i + 1] - pts[j + 1]
+      d = d + math.sqrt(dx * dx + dy * dy)
+    end
+    if not best or d < best then
+      best, bx, by = d, pts[i], pts[i + 1]
+    end
+  end
+  return bx, by
+end
+
 local kind
 local function AddPins()
   if kind or not (Nock.Pins and Nock.Pins.AddKind) then
@@ -95,13 +184,44 @@ local function AddPins()
       if r[6] then
         lines[#lines + 1] = string.format("Attack speed %.1f", r[6])
       end
+      for _, l in ipairs(M.SpawnLines(Spawn(r[1]))) do
+        lines[#lines + 1] = l
+      end
       return lines
+    end,
+    -- Every spawn spot and patrol path on the map being viewed.
+    overlay = function(e, mapID)
+      local sp = Spawn(e.name)
+      local m = sp and sp.maps and sp.maps[mapID]
+      if not m then
+        return nil
+      end
+      return { pts = m.pts, paths = m.paths }
     end,
   })
   local rows = {}
   for _, r in ipairs((Nock.Data or {}).TameRares or {}) do
-    for _, c in ipairs(r[7] or {}) do
-      rows[#rows + 1] = { kind = kind, fac = "AH", map = c[1], x = c[2] / 100, y = c[3] / 100, name = r[1], title = r[2], data = r }
+    local sp = Spawn(r[1])
+    local placed = false
+    if sp and sp.maps then
+      -- One pin per map at its most central spawn spot; the rest show on hover.
+      for map, m in pairs(sp.maps) do
+        local pts = m.pts or {}
+        if #pts < 2 and m.paths and m.paths[1] then
+          pts = m.paths[1]
+        end
+        if #pts >= 2 then
+          local x, y = M.Medoid(pts)
+          rows[#rows + 1] = { kind = kind, fac = "AH", map = map, x = x / 100, y = y / 100, name = r[1], title = r[2], data = r }
+          placed = true
+        end
+      end
+    end
+    if not placed then
+      for _, c in ipairs(r[7] or {}) do
+        rows[#rows + 1] = { kind = kind, fac = "AH", map = c[1], x = c[2] / 100, y = c[3] / 100, name = r[1], title = r[2], data = r }
+        break
+      end
     end
   end
   Nock.Pins.AddEntries(rows)
@@ -173,7 +293,10 @@ function M.NearRares(level, all)
 end
 
 local function RareLine(r)
-  return string.format("%s — %s %s%s, %s", r[1], r[2], r[3], r[5] and " elite" or "", r[4])
+  local sp = Spawn(r[1])
+  local resp = sp and M.RespawnText(sp.resp)
+  return string.format("%s — %s %s%s, %s%s", r[1], r[2], r[3], r[5] and " elite" or "", r[4],
+    resp and (", respawn " .. resp) or "")
 end
 M.RareLine = RareLine
 

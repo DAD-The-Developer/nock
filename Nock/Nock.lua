@@ -75,7 +75,7 @@
 ]]
 
 local ADDON_NAME = ...
-local VERSION = "3.7.0"
+local VERSION = "3.7.1"
 -- Keys, bars and macros last changed in 1.9.0; 2.0 is a new look only, so a
 -- character set up on 1.9.0 is not asked to set up again. 2.0.1's racial keys
 -- (Alt-1, Alt-E) are added by auto keep-up, only on keys that are free.
@@ -3108,7 +3108,9 @@ function Pet.PetTooltip(cap)
           elseif cap.role == "feed" then
             GameTooltip:AddLine("Feed your pet to keep it happy.", 0.8, 1, 0.85)
           elseif cap.role == "revive" then
-            GameTooltip:AddLine("Calls your pet, or revives it if it is dead.", 0.8, 1, 0.85)
+            GameTooltip:AddLine("Revive Pet when your pet is dead; Call Pet when none is out.", 0.8, 1, 0.85)
+          elseif cap.role == "tame" then
+            GameTooltip:AddLine("Tames the beast you target. Dismiss or stable your pet first; the beast must be your level or lower.", 0.8, 1, 0.85, true)
           elseif cap.role == "mend" then
             GameTooltip:AddLine("Heals your pet over a few seconds.", 0.8, 1, 0.85)
           end
@@ -3324,6 +3326,9 @@ function Pet.MakePetBar(parent)
   wrap.revive.role = "revive"
   wrap.mend = Pet.MakePetChip(wrap, "NockPetMend", true)
   wrap.mend.role = "mend"
+  -- 3.7.1: Tame Beast next to Call / Revive (the "get a pet" pair).
+  wrap.tame = Pet.MakePetChip(wrap, "NockPetTame", true)
+  wrap.tame.role = "tame"
   wrap:Hide()
   return wrap
 end
@@ -3566,6 +3571,8 @@ Pet.CARE = {
     book = "pet-call", cmds = { "MACRO Nock:Pet", "SPELL Revive Pet" } },
   mend = { button = "NockPetMend", word = "Mend", names = { "Mend Pet" },
     book = "Mend Pet", cmds = { "SPELL Mend Pet" } },
+  tame = { button = "NockPetTame", word = "Tame", names = { "Tame Beast" },
+    book = "Tame Beast", cmds = { "SPELL Tame Beast" } },
 }
 
 -- The key that does this tile's job: your own bind for the tile, then the key
@@ -3661,7 +3668,7 @@ function Pet.SetCareChip(cap, role)
 end
 
 function Pet.CareKnown()
-  return PlayerKnows("Call Pet") or PlayerKnows("Revive Pet")
+  return PlayerKnows("Call Pet") or PlayerKnows("Revive Pet") or PlayerKnows("Tame Beast")
 end
 
 function Pet.UpdatePetSpellButtons(wrap)
@@ -3672,6 +3679,7 @@ function Pet.UpdatePetSpellButtons(wrap)
   Pet.SetSpellChip(wrap.feed, feedName, feedID, feedIcon, "feed")
   Pet.SetCareChip(wrap.revive, "revive")
   Pet.SetCareChip(wrap.mend, "mend")
+  Pet.SetCareChip(wrap.tame, "tame")
 end
 
 function Pet.UpdatePetButtonCooldown(cap)
@@ -3750,6 +3758,9 @@ function Pet.ForEachPetChip(fn)
   end
   if wrap.mend and wrap.mend:IsShown() then
     fn(wrap.mend)
+  end
+  if wrap.tame and wrap.tame:IsShown() then
+    fn(wrap.tame)
   end
 end
 
@@ -3848,10 +3859,13 @@ function Pet.LayoutPet()
       shownAny = true
     end
   end
-  -- Call / Revive, Mend, then Train / Feed at the right, only if known.
+  -- Call / Revive, Tame, Mend, then Train / Feed at the right, only if known.
   local extras = {}
   if wrap.revive and wrap.revive:IsShown() then
     extras[#extras + 1] = wrap.revive
+  end
+  if wrap.tame and wrap.tame:IsShown() then
+    extras[#extras + 1] = wrap.tame
   end
   if wrap.mend and wrap.mend:IsShown() then
     extras[#extras + 1] = wrap.mend

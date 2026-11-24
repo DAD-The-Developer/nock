@@ -30,7 +30,7 @@ lua.execute(r'''
 UNIT_EXISTS = UNIT_EXISTS or {}; UNIT_EXISTS.pet = (DEAD ~= true) or CORPSE
 function GetBindingAction(k) if M4MINE and k == 'BUTTON4' then return 'TOGGLEAUTORUN' end if M4MINE and k == 'SHIFT-Z' then return 'SPELL Wing Clip' end return '' end
 function GetBindingKey(c) if M4MINE and c == 'SPELL Wing Clip' then return 'SHIFT-Z' end end
-local ids = {['Revive Pet']=982, ['Call Pet']=883, ['Mend Pet']=136, ['Feed Pet']=6991, ['Beast Training']=5149, ['Wing Clip']=2974, ['Hunter\'s Mark']=1130}
+local ids = {['Revive Pet']=982, ['Call Pet']=883, ['Mend Pet']=136, ['Feed Pet']=6991, ['Beast Training']=5149, ['Wing Clip']=2974, ['Hunter\'s Mark']=1130, ['Tame Beast']=1515}
 function GetSpellInfo(n) local id = ids[n] or (type(n)=='number' and n) ; if id then return (type(n)=='string' and n or 'X'), nil, 132161, 0,0,0, id end end
 C_Spell = nil
 local slots = { {"PET_ACTION_ATTACK","PET_ATTACK_TEXTURE",true}, {"PET_ACTION_FOLLOW","PET_FOLLOW_TEXTURE",true}, {"PET_ACTION_WAIT","PET_WAIT_TEXTURE",true},
@@ -60,6 +60,7 @@ if C_Timer and C_Timer._run then C_Timer._run() end
 lua.execute(r'''
 pcall(Nock.SetOverlayShown, true); print('upd', pcall(Nock.UpdatePetBar))
 local n, names = 0, {}
+print('tame', NockPetTame and NockPetTame:IsShown(), NockPetTame and NockPetTame.tag:GetText(), NockPetTame and NockPetTame:GetAttribute('spell'))
 print('revive', NockPetRevive and NockPetRevive:IsShown(), NockPetRevive and NockPetRevive.tag:GetText(), NockPetRevive and NockPetRevive:GetAttribute('macrotext'), 'mend', NockPetMend and NockPetMend:IsShown(), NockPetMend and NockPetMend.tag and NockPetMend.tag:GetText())
 local ex = Nock and overlay
 for _, f in ipairs(FRAMES) do if f.rec and f.rec.id == 'Wing Clip' then print('wingclip tile', f:IsShown(), f.key, f.label and f.label:GetText(), f:GetAttribute('spell'), 'noBind', f.rec.noBind) end end
@@ -78,13 +79,13 @@ r = lua.eval("""(function()
   end
   local n = 0
   for i = 1, 10 do local b = _G['NockPetBtn'..i]; if b and b:IsShown() then n = n + 1 end end
-  return wc and 1 or 0, n, NockPetRevive:IsShown() and 1 or 0, NockPetBtn1.tag:GetText() or '', tostring(wkey), wc and wc.label:GetText() or ''
+  return wc and 1 or 0, n, (NockPetRevive:IsShown() and NockPetTame and NockPetTame:IsShown()) and 1 or 0, NockPetBtn1.tag:GetText() or '', tostring(wkey), wc and wc.label:GetText() or ''
 end)()""")
 wc, n, rev, tag, wkey, wlabel = r
 want = 5 if mode == "alive" else 0
 if wc != 1: sys.exit("PETBAR_FAIL: no full-size Wing Clip tile on the bow bar")
 if wkey != ("SHIFT-Z" if m4mine else "BUTTON4"): sys.exit("PETBAR_FAIL: Wing Clip tile on %s" % wkey)
 if n != want: sys.exit("PETBAR_FAIL: %d pet command tiles, expected %d" % (n, want))
-if rev != 1: sys.exit("PETBAR_FAIL: Call / Revive tile missing")
+if rev != 1: sys.exit("PETBAR_FAIL: Call / Revive or Tame Beast tile missing")
 if mode == "alive" and not tag: sys.exit("PETBAR_FAIL: Attack tile has no key label")
 print("PETBAR_OK", mode, "m4mine" if m4mine else "", "wing clip on", wkey, wlabel)

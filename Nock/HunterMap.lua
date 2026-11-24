@@ -477,6 +477,90 @@ local function TipEntry(e, dist)
   end
 end
 
+-- 3.7.1: hover overlay. A kind can return { pts = { x, y, ... }, paths =
+-- { { x, y, ... }, ... } } (0-100, this map) from def.overlay(e, mapID); the
+-- world map then marks every spawn spot and draws patrol paths while the pin
+-- is hovered (click the pin to keep it shown). Nothing is drawn otherwise.
+local provider -- the world map data provider (set in HookWorldMap)
+local ov = { dots = {}, lines = {}, sticky = nil }
+Pins.overlay = ov
+
+local function OverlayClear()
+  for _, t in ipairs(ov.dots) do
+    t:Hide()
+  end
+  for _, l in ipairs(ov.lines) do
+    l:Hide()
+  end
+  ov.shownFor = nil
+end
+Pins.OverlayClear = OverlayClear
+
+local function OverlayShow(frame)
+  local e = frame and frame.entry
+  local kdef = e and Pins.KINDS[e.kind]
+  if not (kdef and kdef.overlay and provider and provider:GetMap()) then
+    return
+  end
+  local map = provider:GetMap()
+  local mapID = map:GetMapID()
+  local ok, data = pcall(kdef.overlay, e, mapID)
+  if not ok or type(data) ~= "table" then
+    return
+  end
+  OverlayClear()
+  local canvas = map:GetCanvas()
+  local cw, ch = canvas:GetWidth() or 1, canvas:GetHeight() or 1
+  local scale = 1 / math.max(0.01, (map.GetCanvasScale and map:GetCanvasScale()) or 1)
+  local c = kdef.color or { 1, 1, 1 }
+  local level = math.min(9000, canvas:GetFrameLevel() + 2090)
+  ov.host = ov.host or CreateFrame("Frame", nil, canvas)
+  if ov.host:GetParent() ~= canvas then
+    ov.host:SetParent(canvas)
+  end
+  ov.host:SetAllPoints(canvas)
+  ov.host:SetFrameLevel(level)
+  ov.host:Show()
+  local nl = 0
+  for _, path in ipairs(data.paths or {}) do
+    for i = 1, #path - 3, 2 do
+      nl = nl + 1
+      local l = ov.lines[nl]
+      if not l then
+        if not ov.host.CreateLine then
+          break
+        end
+        l = ov.host:CreateLine(nil, "ARTWORK")
+        ov.lines[nl] = l
+      end
+      l:SetColorTexture(c[1], c[2], c[3], 0.85)
+      l:SetThickness(3 * scale)
+      l:SetStartPoint("TOPLEFT", ov.host, cw * path[i] / 100, -ch * path[i + 1] / 100)
+      l:SetEndPoint("TOPLEFT", ov.host, cw * path[i + 2] / 100, -ch * path[i + 3] / 100)
+      l:Show()
+    end
+  end
+  local pts = data.pts or {}
+  local size = WORLD_SIZE * 0.62 * scale
+  local nd = 0
+  for i = 1, #pts - 1, 2 do
+    nd = nd + 1
+    local t = ov.dots[nd]
+    if not t then
+      t = ov.host:CreateTexture(nil, "OVERLAY")
+      ov.dots[nd] = t
+    end
+    t:SetTexture(kdef.tex)
+    t:SetVertexColor(1, 1, 1, 0.9)
+    t:SetSize(size, size)
+    t:ClearAllPoints()
+    t:SetPoint("CENTER", ov.host, "TOPLEFT", cw * pts[i] / 100, -ch * pts[i + 1] / 100)
+    t:Show()
+  end
+  ov.shownFor = frame
+end
+Pins.OverlayShow = OverlayShow
+
 local function ShowTip(frame)
   local e = frame.entry
   if not (e and GameTooltip) then
@@ -501,11 +585,37 @@ local function ShowTip(frame)
     TipEntry(e, frame.dist)
   end
   GameTooltip:Show()
+  if frame.world and not ov.sticky then
+    OverlayShow(frame)
+  end
 end
 
 local function HideTip()
   if GameTooltip then
     GameTooltip:Hide()
+  end
+  if not ov.sticky then
+    OverlayClear()
+  end
+end
+
+-- Click a world pin that has an overlay to keep its spots and path shown;
+-- click it (or another such pin) again to switch.
+local function PinClick(frame, button)
+  if button ~= "LeftButton" or not frame.world then
+    return
+  end
+  local kdef = frame.entry and Pins.KINDS[frame.entry.kind]
+  if not (kdef and kdef.overlay) then
+    return
+  end
+  if ov.sticky == frame.entry then
+    ov.sticky = nil
+    OverlayClear()
+  else
+    ov.sticky = nil
+    OverlayShow(frame)
+    ov.sticky = frame.entry
   end
 end
 
@@ -532,6 +642,7 @@ local function NewPin(parent, size)
   f.count = count
   f:SetScript("OnEnter", ShowTip)
   f:SetScript("OnLeave", HideTip)
+  f:SetScript("OnMouseUp", PinClick)
   f:Hide()
   return f
 end
@@ -778,9 +889,9 @@ end
 local worldPins = {}
 local lastWorldScale
 local worldUsed = 0
-local provider
 
 local function HideWorld()
+  OverlayClear()
   for i = 1, #worldPins do
     worldPins[i]:Hide()
     worldPins[i].entry = nil
@@ -887,6 +998,7 @@ local function RefreshWorld()
     local f = worldPins[worldUsed]
     if not f then
       f = NewPin(canvas, WORLD_SIZE)
+      f.world = true
       worldPins[worldUsed] = f
     end
     if f:GetParent() ~= canvas then
@@ -898,6 +1010,12 @@ local function RefreshWorld()
     f.dist = nil
     PlaceWorldPin(f, canvas, scale)
     f:Show()
+    if ov.sticky and ov.sticky == pl.p.e then
+      local keep = ov.sticky
+      ov.sticky = nil
+      OverlayShow(f)
+      ov.sticky = keep
+    end
   end
 end
 
@@ -919,6 +1037,12 @@ local function RescaleWorld()
     if worldPins[i].entry then
       PlaceWorldPin(worldPins[i], canvas, scale)
     end
+  end
+  if ov.shownFor and ov.shownFor.entry then
+    local keep = ov.sticky
+    ov.sticky = nil
+    OverlayShow(ov.shownFor)
+    ov.sticky = keep
   end
 end
 

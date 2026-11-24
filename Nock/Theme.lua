@@ -630,6 +630,7 @@ _G["BINDING_NAME_CLICK NockWingClipButton:LeftButton"] = "Wing Clip (highest ran
 _G["BINDING_NAME_CLICK NockMarkButton:LeftButton"] = "Hunter's Mark (highest rank you know)"
 _G["BINDING_NAME_CLICK NockPetRevive:LeftButton"] = "Call / Revive Pet (pet bar tile)"
 _G["BINDING_NAME_CLICK NockPetMend:LeftButton"] = "Mend Pet (pet bar tile)"
+_G["BINDING_NAME_CLICK NockPetTame:LeftButton"] = "Tame Beast (pet bar tile)"
 _G["BINDING_NAME_CLICK NockFeedButton:LeftButton"] = "Feed pet (best food in your bags)"
 BINDING_NAME_NOCK_KIT = "Open Hunter Tools (Field Kit)"
 BINDING_NAME_NOCK_SUPPLIES = "Check ammo, pet food, food and water"
