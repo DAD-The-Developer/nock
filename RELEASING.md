@@ -22,6 +22,7 @@ Whenever Nock is updated:
        python3 tests/run_tools.py
        python3 tests/run_window.py
        python3 tests/run_petbar.py
+       python3 tests/run_dash.py
 
 5. Optionally build a local shareable zip to check the contents:
 

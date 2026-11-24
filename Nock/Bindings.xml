@@ -39,6 +39,9 @@
   <Binding name="NOCK_TAME_PINS">
     Nock_ToggleTamePins()
   </Binding>
+  <Binding name="NOCK_DASH">
+    Nock_ToggleDash()
+  </Binding>
   <Binding name="NOCK_TRACKER">
     Nock_ToggleTracker()
   </Binding>

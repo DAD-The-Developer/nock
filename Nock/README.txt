@@ -22,6 +22,12 @@ If the game says it is out of date, enable "Load out of date AddOns"
 once, then tell me the interface number from /dump select(4, GetBuildInfo()).
 
 
+New in 3.7.0
+The Dashboard: free bag slots, ammo left (and minutes of Auto Shot) and
+your tracked quests with progress, in one panel. /nock dash to show it,
+/nock dash unlock to move it. Options > On screen has size and a solid
+background for mirroring to a second monitor.
+
 New in 3.6.3
 Wing Clip is a full-size tile on the bow bar, right after Q, with its
 key (S-Z or M4) and a second Caps badge for the dedicated key.

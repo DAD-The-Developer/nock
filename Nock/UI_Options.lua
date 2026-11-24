@@ -141,6 +141,31 @@ local function Build(page)
       end
     end)
 
+  -- 3.7.0: the Dashboard (bags, ammo, tracked quests), for a corner of the
+  -- screen or a second monitor.
+  local Dash = Nock.Dash
+  if Dash then
+    add("Dashboard: bags, ammo and tracked quests", "A compact panel with free bag slots, ammo left (and about how many minutes of Auto Shot that is) and your tracked quests with their progress. Park it in a corner, or mirror it to a second monitor with OBS. Also /nock dash.",
+      function() return Dash.IsShown() end, function(on) Dash.SetShown(on) end)
+    add("   Unlock the dashboard (drag to move)", "Drag the dashboard anywhere, then turn this off to lock it. Locked, clicks pass straight through it. Also /nock dash unlock | lock | reset.",
+      function() return Dash.IsUnlocked() end, function(on) Dash.SetUnlocked(on) end)
+    add("   Solid dashboard background", "Fully opaque background, so it reads cleanly when mirrored to another screen. Off is the same see-through card as Nock's alerts.",
+      function() return Dash.IsSolid() end, function(on) Dash.SetSolid(on) end)
+    local dLab = child:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    EnsureFont(dLab, m.body or 16, "OUTLINE")
+    dLab:SetPoint("TOPLEFT", 48, child._y)
+    dLab:SetText("Size")
+    dLab:SetTextColor(0.95, 0.88, 0.55)
+    local dSeg = L.Segmented(child, {
+      { "Small", "small" }, { "Normal", "normal" }, { "Large", "large" },
+    }, function() return Dash.Size() end, function(val) Dash.SetSize(val) end,
+      360, "How big the dashboard is. Large is the default.")
+    dSeg:SetPoint("TOPLEFT", 120, child._y + 4)
+    page.segs = page.segs or {}
+    page.segs[#page.segs + 1] = dSeg
+    child._y = child._y - 48
+  end
+
   local sizeLab = child:CreateFontString(nil, "OVERLAY", "GameFontNormal")
   EnsureFont(sizeLab, m.body or 16, "OUTLINE")
   sizeLab:SetPoint("TOPLEFT", 12, child._y)

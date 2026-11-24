@@ -2,6 +2,19 @@
 
 All notable changes to Nock from 3.0.11 onward. The addon folder's `Nock/README.txt` also has older notes.
 
+## 3.7.0
+
+New: the Dashboard, one compact panel for a corner of the screen or a second monitor.
+- **Bags:** free general bag slots and how many are used (your quiver or ammo pouch is not counted). Amber at 4 free or fewer, red when full.
+- **Ammo:** arrows or bullets left and about how many minutes of Auto Shot that is at your current ranged speed. Amber under 5 minutes, red when empty. Updates every second in combat.
+- **Quests:** your tracked quests with objective progress ("Tough Wolf Meat 4/8"). Finished objectives turn green, finished quests say "(done)". With nothing tracked it shows the top of your quest log. Up to 5 quests and 16 lines, then "+N more".
+- Matches the alert card look in Emerald and Gunsmith. Fixed row heights, square edges, nothing shifts or overlaps as numbers change.
+- Off by default. Turn it on with /nock dash or Options > On screen > "Dashboard". Same section: unlock to drag, solid background (for mirroring), Small / Normal / Large (Large is the default).
+- /nock dash, /nock dash unlock | lock | reset | small | normal | large | solid. /nock unlock and /nock reset positions include it. Locked, clicks pass straight through it.
+- New unbound keybind "Show or hide the dashboard" in Key Bindings > AddOns > Nock. Nothing is bound for you.
+- Uses the Forever quest API (C_QuestLog watches and objectives) and C_Container bag families. Settings in NockCharDB.dash, position in NockCharDB.positions.dash.
+- New test: tests/run_dash.py.
+
 ## 3.6.3
 
 - Wing Clip is a full-size tile on the bow bar, right after Q in the "it's on me" group. Root cause: with mouse buttons on but Mouse 4 holding your own bind, Nock moves Wing Clip to Shift-Z, and the bow bar only had a Mouse 4 slot, so Wing Clip got no bow tile. The bar now shows the Shift-Z tile in that place.

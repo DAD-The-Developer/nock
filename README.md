@@ -47,6 +47,8 @@ Hunter trainers, pet trainers, stable masters and ammo vendors show on the minim
 
 A movable quiver counter (an ammo pouch in Gunsmith) shows your ammo in big numbers: green when stocked, yellow at half, red when low. Shift-drag to move; `/nock quiver`, `/nock quiver unlock | lock | reset`.
 
+The **Dashboard** (3.7.0) is one compact panel with free bag slots, ammo left (with about how many minutes of Auto Shot that is) and your tracked quests with objective progress. Park it in a corner or mirror it to a second monitor with OBS's Windowed Projector. `/nock dash` shows it; `/nock dash unlock | lock | reset | small | normal | large | solid`.
+
 ## Hunter tools (3.4.0)
 
 Eleven small tools on one core (`Nock/Core.lua`): each is on by default, with its own switch in Options > Hunter tools, a `/nock` word, and a section on the **Tools** tab (`/nock kit`). They all read one profile layer: level, spellbook ranks, spec from talents, and context (solo, group, dungeon, raid, battleground, arena). At 60 they switch to endgame mode; in battlegrounds and arenas to PvP mode.
@@ -63,6 +65,7 @@ Eleven small tools on one core (`Nock/Core.lua`): each is on by default, with it
 | `/nock route` | Leveling route and hunter milestones; endgame checklist at 60; `/nock route pvp` |
 | `/nock train` | New trainer ranks on level up and the nearest trainer |
 | `/nock tracker` | Kills to level, XP/hour; gold/hour at 60 |
+| `/nock dash` | Dashboard: bags, ammo and tracked quests |
 | `/nock pvp` | Enemy player readout, trinket alerts, PvP field notes |
 | `/nock tools` | List, `mute`, `endgame auto/on/off`, `pvp on/off` |
 | `/nock unlock` / `lock` / `reset positions` | Move every Nock frame (3.4.1) |
