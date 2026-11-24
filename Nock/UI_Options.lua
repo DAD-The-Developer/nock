@@ -142,6 +142,13 @@ local function Build(page)
       end
     end)
 
+  -- 3.9.0: quest item drop chances (tooltip + Dashboard).
+  local QDrops = Nock.QuestDrops
+  if QDrops then
+    add("Quest item drop chances", "While a quest still needs an item that drops from mobs: the mob's tooltip shows the drop chance (Quest: Tough Wolf Meat 4/8, drop 80%), and the Dashboard shows the best mob under the objective. Classic loot data; Forever may differ. No % where no source has one. Also /nock drops on | off.",
+      function() return QDrops.Enabled() end, function(on) QDrops.SetEnabled(on) end)
+  end
+
   -- 3.7.0: the Dashboard (bags, ammo, tracked quests), for a corner of the
   -- screen or a second monitor.
   local Dash = Nock.Dash

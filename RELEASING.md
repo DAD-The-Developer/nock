@@ -25,6 +25,7 @@ Whenever Nock is updated:
        python3 tests/run_dash.py
        python3 tests/run_binds.py
        python3 tests/run_news.py
+       python3 tests/run_questdrops.py
 
 5. Optionally build a local shareable zip to check the contents:
 

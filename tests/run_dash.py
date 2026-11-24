@@ -145,8 +145,10 @@ run(r"""
   ok(q.quests[1].title == "Wolves Across the Border" and not q.quests[1].complete, "wolves in progress")
   ok(q.quests[2].complete, "kobold candles done")
   local rows = D.QuestRows(q, 16)
-  ok(#rows == 4, "rows: title, 2 objectives, done title (got " .. #rows .. ")")
-  ok(rows[2].text == "Tough Wolf Meat 4/8" and rows[3].done, "objective text and done flag")
+  -- 3.9.0: a drop row under Tough Wolf Meat (still needed) and the grey note.
+  ok(#rows == 6, "rows: title, objective, drop, done objective, done title, note (got " .. #rows .. ")")
+  ok(rows[2].text == "Tough Wolf Meat 4/8" and rows[3].kind == "drop" and rows[4].done, "objective text, drop row and done flag")
+  ok(rows[6].kind == "note" and rows[6].text == "Classic data; Forever may differ", "grey Classic-data note last")
 
   WATCH = {}
   q = D.ReadQuests()

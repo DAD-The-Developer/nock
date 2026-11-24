@@ -231,6 +231,22 @@ function D.ObjectiveText(o)
   return "Objective"
 end
 
+-- 3.9.0: drop chance under an item objective still needed (Nock.QuestDrops).
+function D.DropFor(o)
+  local QD = Nock.QuestDrops
+  if not (QD and QD.Enabled() and (o.type == nil or o.type == "item")) then
+    return nil
+  end
+  local name, have, need = QD.ParseObjective(o.text)
+  have = Core.Number(o.numFulfilled) or have
+  need = Core.Number(o.numRequired) or need
+  if not name or (have and need and have >= need) then
+    return nil
+  end
+  local id = QD.ItemID(name)
+  return id and QD.Summary(id, QD.CurrentMap()) or nil
+end
+
 local function QuestEntry(questID)
   local QL = C_QuestLog
   local title = Str(QL.GetTitleForQuestID and Core.Call(QL.GetTitleForQuestID, questID))
@@ -244,7 +260,9 @@ local function QuestEntry(questID)
   if type(list) == "table" then
     for _, o in ipairs(list) do
       if type(o) == "table" then
-        objectives[#objectives + 1] = { text = D.ObjectiveText(o), done = Core.Flag(o.finished) == true }
+        local done = Core.Flag(o.finished) == true
+        objectives[#objectives + 1] = { text = D.ObjectiveText(o), done = done,
+          drop = (not done) and D.DropFor(o) or nil }
       end
     end
   end
@@ -310,10 +328,19 @@ function D.QuestRows(q, maxLines)
   maxLines = maxLines or MAX_LINES
   local rows = {}
   local hidden = q.more or 0
+  local drops = false
   for qi, quest in ipairs(q.quests or {}) do
     -- A quest needs its title plus at least one line (objective or "Done").
     local objs = quest.objectives or {}
-    local want = 1 + ((quest.complete or #objs == 0) and 0 or math.min(#objs, MAX_OBJ))
+    local want = 1
+    if not (quest.complete or #objs == 0) then
+      for oi, o in ipairs(objs) do
+        if oi > MAX_OBJ then
+          break
+        end
+        want = want + ((o.drop and not o.done) and 2 or 1)
+      end
+    end
     if #rows + want > maxLines then
       hidden = hidden + (#q.quests - qi + 1)
       break
@@ -325,11 +352,19 @@ function D.QuestRows(q, maxLines)
           break
         end
         rows[#rows + 1] = { kind = "obj", text = o.text, done = o.done }
+        if o.drop and not o.done then
+          rows[#rows + 1] = { kind = "drop", text = o.drop.text, pct = o.drop.pct }
+          drops = true
+        end
       end
     end
   end
   if hidden > 0 then
     rows[#rows + 1] = { kind = "more", text = string.format("+%d more in your quest log", hidden) }
+  end
+  if drops then
+    local QD = Nock.QuestDrops
+    rows[#rows + 1] = { kind = "note", text = QD and QD.NOTE or "Classic data; Forever may differ" }
   end
   return rows
 end
@@ -649,6 +684,25 @@ local function Paint()
         Color(r, th.sub)
       end
       y = y - QOBJ_H
+    elseif row.kind == "drop" then
+      Font(r, 11)
+      r:SetWidth(W - PAD * 2 - 28)
+      r:SetPoint("TOPLEFT", frame, "TOPLEFT", PAD + 28, y)
+      r:SetText(row.text)
+      if row.pct then
+        Color(r, th.accent and th.accent.info or GOOD, 0.9)
+      else
+        Color(r, th.sub, 0.85)
+      end
+      y = y - QOBJ_H
+    elseif row.kind == "note" then
+      y = y - 4
+      Font(r, 11)
+      r:SetWidth(W - PAD * 2 - 4)
+      r:SetPoint("TOPLEFT", frame, "TOPLEFT", PAD + 4, y)
+      r:SetText(row.text)
+      r:SetTextColor(0.5, 0.5, 0.5, 0.9)
+      y = y - QOBJ_H
     else
       y = y - 2
       Font(r, 12)
@@ -799,7 +853,7 @@ for _, e in ipairs({
   "UNIT_INVENTORY_CHANGED", "PLAYER_EQUIPMENT_CHANGED", "UNIT_RANGEDDAMAGE",
   "QUEST_LOG_UPDATE", "QUEST_WATCH_UPDATE", "QUEST_WATCH_LIST_CHANGED",
   "UNIT_QUEST_LOG_CHANGED", "QUEST_ACCEPTED", "QUEST_REMOVED", "QUEST_TURNED_IN",
-  "GET_ITEM_INFO_RECEIVED", "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED",
+  "GET_ITEM_INFO_RECEIVED", "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED", "ZONE_CHANGED_NEW_AREA",
 }) do
   pcall(ev.RegisterEvent, ev, e)
 end

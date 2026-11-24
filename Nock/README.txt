@@ -22,6 +22,12 @@ If the game says it is out of date, enable "Load out of date AddOns"
 once, then tell me the interface number from /dump select(4, GetBuildInfo()).
 
 
+New in 3.9.0
+Quest item drop chances. A mob that drops an item your quest still needs
+shows it on its tooltip (Quest: Tough Wolf Meat 4/8, drop 80%), and the
+Dashboard shows the best mob under the objective. Classic loot data;
+Forever may differ. Options > On screen, or /nock drops on | off.
+
 New in 3.8.1
 Clearer key wording. Nock layout: Nock's left-hand keys (e.g. Ctrl-G,
 Ctrl-Z, C, Z, X, V) take priority while it's on. Your own saved keybinds
