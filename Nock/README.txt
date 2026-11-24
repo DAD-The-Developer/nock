@@ -22,6 +22,12 @@ If the game says it is out of date, enable "Load out of date AddOns"
 once, then tell me the interface number from /dump select(4, GetBuildInfo()).
 
 
+New in 3.10.0
+Flight paths. Every flight point for your faction (and neutral ones) on
+the zone maps and minimap, and the routes between them on the continent
+maps. Hover for the flight master, zone, where it flies and whether you
+have discovered it. /nock flights on | off.
+
 New in 3.9.0
 Quest item drop chances. A mob that drops an item your quest still needs
 shows it on its tooltip (Quest: Tough Wolf Meat 4/8, drop 80%), and the

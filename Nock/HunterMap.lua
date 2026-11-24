@@ -42,7 +42,8 @@ Pins.KINDS = {
   { id = "quiver", label = "Quiver and ammo pouch vendors", role = "Quivers and ammo pouches", tex = TEX .. "pin_quiver", color = { 0.62, 0.84, 0.86 } },
   { id = "petfood", label = "Pet food vendors", role = "Pet food", tex = TEX .. "pin_petfood", color = { 0.93, 0.55, 0.42 }, edge = false, perMini = 2 },
   { id = "quest", label = "Hunter quests", role = "Hunter quests", tex = TEX .. "pin_quest", color = { 0.98, 0.84, 0.30 }, edge = false },
-  { id = "flight", label = "Flight masters", role = "Flight master", tex = TEX .. "pin_flight", color = { 0.70, 0.78, 0.86 }, edge = false, perMini = 1, defaultOff = true },
+  -- 3.10.0: flight paths (Flights.lua fills this kind from Data_Flights.lua; on by default).
+  { id = "flight", label = "Flight paths", role = "Flight master", tex = TEX .. "pin_flight", color = { 0.70, 0.78, 0.86 }, edge = false, perMini = 1 },
 }
 local KIND_BY_ID = {}
 for i, k in ipairs(Pins.KINDS) do
@@ -652,7 +653,9 @@ local function SetEntry(f, e, group)
   f.group = group
   local k = Pins.KINDS[e.showKind or e.kind] or Pins.KINDS[e.kind]
   f.icon:SetTexture(k.tex)
-  f.icon:SetDesaturated(e.hostile and true or false)
+  f.icon:SetDesaturated((e.hostile or e.dim) and true or false)
+  -- 3.10.0: e.dim = a flight path you have not discovered yet (quieter pin).
+  f.icon:SetAlpha(e.dim and 0.6 or 1)
   local also = e.alsoKind and Pins.KINDS[e.alsoKind]
   if also and f.dot then
     f.dot:SetVertexColor(also.color[1], also.color[2], also.color[3])

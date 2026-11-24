@@ -72,7 +72,7 @@ local pc = PN.Counts()
 for _, k in ipairs({ "ranged:A", "ranged:H", "quiver:A", "quiver:H", "petfood:A", "petfood:H", "quest:A", "quest:H", "flight:A", "flight:H" }) do
   check((pc[k] or 0) > 0, "pins have " .. k .. " (" .. tostring(pc[k]) .. ")")
 end
-check(not PN.KindOn("flight") and PN.KindOn("ranged") and PN.KindOn("petfood"), "flight masters off by default, vendor kinds on")
+check(PN.KindOn("flight") and PN.KindOn("ranged") and PN.KindOn("petfood"), "3.10.0: flight paths on by default, vendor kinds on")
 local arrowVendor
 for _, r in ipairs(Nock.PinData) do
   if r[8]:find("a", 1, true) and r[9] > 0 then arrowVendor = r break end

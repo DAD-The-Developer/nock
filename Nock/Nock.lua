@@ -75,7 +75,7 @@
 ]]
 
 local ADDON_NAME = ...
-local VERSION = "3.9.0"
+local VERSION = "3.10.0"
 -- Keys, bars and macros last changed in 1.9.0; 2.0 is a new look only, so a
 -- character set up on 1.9.0 is not asked to set up again. 2.0.1's racial keys
 -- (Alt-1, Alt-E) are added by auto keep-up, only on keys that are free.

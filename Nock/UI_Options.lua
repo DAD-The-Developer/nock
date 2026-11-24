@@ -271,7 +271,7 @@ local function Build(page)
   child._y = child._y - 40
 
   local P = Nock.Pins
-  add("Hunter map pins", "Hunter trainers, pet trainers, stable masters, ammo, bow and gun, quiver and pet food vendors, hunter quests and (optional) flight masters on your minimap and world map, city and zone maps alike. Hover a vendor to see what it sells, with the best item for your level. Also /nock pins or the keybind.",
+  add("Hunter map pins", "Hunter trainers, pet trainers, stable masters, ammo, bow and gun, quiver and pet food vendors, hunter quests and flight paths on your minimap and world map, city and zone maps alike. Hover a vendor to see what it sells, with the best item for your level. Also /nock pins or the keybind.",
     function() return P and P.IsOn() end, function(on) if P then P.SetOn(on) end end)
   add("   On the minimap", "Pins on the minimap.",
     function() return P and P.MinimapOn() end, function(on) if P then P.SetMinimap(on) end end)
@@ -281,6 +281,14 @@ local function Build(page)
     local id = k.id
     add("   " .. k.label, "Show " .. string.lower(k.label) .. " on the maps.",
       function() return P.KindOn(id) end, function(on) P.SetKind(id, on) end)
+    -- 3.10.0: flight path extras right under the Flight paths kind.
+    local FL = Nock.Flights
+    if id == "flight" and FL then
+      add("      Flight routes on the continent map", "Thin lines between flight points that fly to each other on the Kalimdor and Eastern Kingdoms maps, brighter where you know both ends. Hover a point to light up its routes. Also /nock flights routes on | off.",
+        function() return FL.RoutesOn() end, function(on) FL.SetRoutes(on) end)
+      add("      Other faction's flight paths", "Also show the other faction's flight points and routes (grey). Off by default. Also /nock flights other on | off.",
+        function() return FL.OtherOn() end, function(on) FL.SetOther(on) end)
+    end
   end
   add("   Other faction too", "Also show the other faction's NPCs, greyed out. Off by default.",
     function() return P and P.HostileOn() end, function(on) if P then P.SetHostile(on) end end)
