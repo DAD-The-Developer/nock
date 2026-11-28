@@ -42,6 +42,20 @@ function M.JunkList(bags)
   return out
 end
 
+-- 3.13.0: right before selling, the slot must still hold the same grey item
+-- (bags can shift while a batch is selling). Anything else is left alone, so
+-- nothing but greys is ever sold. Pure apart from the bag read (tested).
+function M.StillJunk(it)
+  if not (C_Container and C_Container.GetContainerItemInfo) then
+    return it.quality == 0
+  end
+  local ok, info = pcall(C_Container.GetContainerItemInfo, it.bag, it.slot)
+  if not ok or type(info) ~= "table" then
+    return false
+  end
+  return info.itemID == it.id and info.quality == 0 and not info.isLocked and not info.hasNoValue
+end
+
 local function Use(bag, slot)
   local f = (C_Container and C_Container.UseContainerItem) or UseContainerItem
   if f then
@@ -79,10 +93,12 @@ local function SellBatch()
   local n = 0
   while #queue > 0 and n < BATCH do
     local it = table.remove(queue, 1)
-    Use(it.bag, it.slot)
-    sold = sold + (it.price or 0) * (it.count or 1)
-    soldCount = soldCount + 1
-    n = n + 1
+    if M.StillJunk(it) then
+      Use(it.bag, it.slot)
+      sold = sold + (it.price or 0) * (it.count or 1)
+      soldCount = soldCount + 1
+      n = n + 1
+    end
   end
   if #queue > 0 and C_Timer and C_Timer.After then
     C_Timer.After(0.3, SellBatch)

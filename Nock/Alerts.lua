@@ -54,7 +54,7 @@ local SOUND_FALLBACK = 8959
 
 A.CATEGORY_LABELS = {
   pet = "Pet", supplies = "Supplies", aspects = "Aspects", feign = "Feign Death", range = "Range and Wing Clip",
-  train = "Trainer", tame = "Taming", pvp = "PvP", vendor = "Vendor", route = "Route", tracker = "Tracker", general = "General",
+  train = "Trainer", tame = "Taming", pvp = "PvP", vendor = "Vendor", gold = "Gold", route = "Route", tracker = "Tracker", general = "General",
 }
 
 -- Settings ---------------------------------------------------------------------

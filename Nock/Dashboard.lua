@@ -5,6 +5,8 @@
     Bags     free general bag slots / total (quiver and ammo pouch not counted)
     Ammo     arrows or bullets left, and about how many minutes of Auto Shot
              that is at your current ranged speed
+    Gold     3.13.0: earned this session, gold per hour, bag value and the
+             mount fund (Tool_Gold.lua; hidden with /nock gold dash off)
     Quests   your tracked quests with objective progress (the top of your
              quest log when nothing is tracked)
 
@@ -481,6 +483,13 @@ local function Create()
   y = y - STAT_H - GAP
   f.ammo = Stat(f, y, "AMMO")
   y = y - STAT_H - GAP
+  -- 3.13.0: gold this session (Tool_Gold); quests move down when it shows.
+  f.gold = Stat(f, y, "GOLD THIS SESSION")
+  f.goldSub = Text(f, 11)
+  f.goldSub:SetPoint("TOPLEFT", f, "TOPLEFT", PAD + 4, y - STAT_H - 2)
+  f.goldSub:SetWidth(INNER_W)
+  f.goldTop = y
+  y = y - STAT_H - GAP
   f.qLine = Divider(f)
   f.qLine:SetPoint("TOPLEFT", f, "TOPLEFT", PAD + 4, y)
   f.qLine:SetPoint("TOPRIGHT", f, "TOPRIGHT", -PAD, y)
@@ -492,6 +501,7 @@ local function Create()
   f.qNote:SetPoint("TOPRIGHT", f, "TOPRIGHT", -PAD, y)
   f.qNote:SetWidth(W / 2)
   f.questTop = y - QHEAD_H + 4
+  f.qHeadY = y   -- quest header y (label row) without the gold block
   f.rows = {}
 
   if Core.MakeMovable then
@@ -572,11 +582,12 @@ local function PaintFrame(th)
   local line = { th.trim[1], th.trim[2], th.trim[3], 0.35 }
   frame.headLine:SetColorTexture(line[1], line[2], line[3], line[4])
   frame.qLine:SetColorTexture(line[1], line[2], line[3], line[4])
-  for _, s in ipairs({ frame.bags, frame.ammo }) do
+  for _, s in ipairs({ frame.bags, frame.ammo, frame.gold }) do
     s.track:SetColorTexture(0, 0, 0, 0.55)
     Color(s.label, th.sub)
     Color(s.note, th.sub)
   end
+  Color(frame.goldSub, th.sub)
   Color(frame.title, th.trim)
   Color(frame.qLabel, th.sub)
   Color(frame.qNote, th.sub)
@@ -634,11 +645,45 @@ local function Paint()
     Meter(s, 0, BAD)
   end
 
+  -- Gold (3.13.0, Tool_Gold): hidden when its switch is off; quests move up.
+  local G = Nock.Gold
+  local gi = G and G.DashInfo and Core.Call(G.DashInfo)
+  local g = frame.gold
+  local shift = 0
+  if type(gi) == "table" then
+    for _, w in ipairs({ g.label, g.value, g.note, g.track, frame.goldSub }) do
+      w:Show()
+    end
+    g.value:SetText(gi.value or "--")
+    Color(g.value, title)
+    g.note:SetText(gi.note or "")
+    frame.goldSub:SetText(gi.sub or "")
+    if gi.meter then
+      Meter(g, gi.meter, { 1.00, 0.83, 0.30 })
+    else
+      Meter(g, 0, GOOD)
+    end
+    shift = 16 -- the bag value line under the meter
+  else
+    for _, w in ipairs({ g.label, g.value, g.note, g.track, g.fill, frame.goldSub }) do
+      w:Hide()
+    end
+    shift = -(STAT_H + GAP)
+  end
+  local qy = frame.qHeadY - shift
+  frame.qLine:ClearAllPoints()
+  frame.qLine:SetPoint("TOPLEFT", frame, "TOPLEFT", PAD + 4, qy + GAP)
+  frame.qLine:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -PAD, qy + GAP)
+  frame.qLabel:ClearAllPoints()
+  frame.qLabel:SetPoint("TOPLEFT", frame, "TOPLEFT", PAD + 4, qy)
+  frame.qNote:ClearAllPoints()
+  frame.qNote:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -PAD, qy)
+
   -- Quests
   local q = D.ReadQuests()
   local rows = D.QuestRows(q, MAX_LINES)
   frame.qNote:SetText(q.source == "tracked" and (#q.quests > 0 and "tracked" or "") or (#q.quests > 0 and "from quest log" or ""))
-  local y = frame.questTop
+  local y = frame.questTop - shift
   local n = 0
   if #rows == 0 then
     n = 1

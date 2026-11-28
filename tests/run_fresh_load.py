@@ -14,8 +14,8 @@ TESTS = Path("/workspace/nock/tests")
 toc = (ROOT / "Nock.toc").read_text()
 if "## Interface: 16001" not in toc:
     sys.exit("TOC Interface is not 16001")
-if "## Version: 3.12.0" not in toc:
-    sys.exit("TOC Version is not 3.12.0")
+if "## Version: 3.13.0" not in toc:
+    sys.exit("TOC Version is not 3.13.0")
 
 lua_files = [
     line.strip()
@@ -84,8 +84,8 @@ def fail(msg):
 nock = g.Nock
 if not nock:
     fail("Nock global missing after load")
-if nock.Version != "3.12.0":
-    fail("Nock.Version is %r, expected 3.12.0" % (nock.Version,))
+if nock.Version != "3.13.0":
+    fail("Nock.Version is %r, expected 3.13.0" % (nock.Version,))
 
 theme = g.NockTheme
 if not theme:
@@ -116,8 +116,8 @@ core = nock.Core
 if core is None:
     fail("Nock.Core (3.4 hunter tools) missing")
 nmods = lua.eval("#Nock.Core.order")
-if nmods != 11:
-    fail("expected 11 hunter tools, got %r" % (nmods,))
+if nmods != 12:
+    fail("expected 12 hunter tools (3.13.0 adds gold), got %r" % (nmods,))
 errs = lua.eval("(function() local n = 0; for k, v in pairs(Nock.Core.errors or {}) do print('tool error', k, v); n = n + 1 end; return n end)()")
 if errs:
     fail("hunter tool errors on first login")
