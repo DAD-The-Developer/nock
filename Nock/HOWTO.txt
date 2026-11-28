@@ -348,6 +348,17 @@ Intensity (Low, Medium, High). Both are on by default.
 Works on Blizzard's bars, and on Bartender4, Dominos and ElvUI bars when
 Nock can find their buttons.
 
+Automatic updates and chat lines (new in 3.10.2)
+------------------------------------------------
+You do not need to click Rebuild after training. About a second and a half
+after the last learn event, and never during a fight, Nock reads the
+spellbook, puts new spells on their planned EMPTY keys, repaints the bar and
+prints what changed: "Added Feign Death to E", "Arcane Shot upgraded to
+Rank 6". A trainer visit gives one grouped message. Pets: "Pet Rex learned
+Bite (Rank 4), on pet bar slot 5" and "New pet Whiskers (Cat): ...". A key you
+set yourself is never replaced. /nock announce off turns the chat lines off
+(keys are still filled); /nock announce on turns them back on.
+
 Rebuild and /nock check (new in 3.10.1)
 ---------------------------------------
 Trained something and don't see it? Click Rebuild on the My Rotation page,

@@ -22,6 +22,13 @@ If the game says it is out of date, enable "Load out of date AddOns"
 once, then tell me the interface number from /dump select(4, GetBuildInfo()).
 
 
+New in 3.10.2
+New spells, new ranks, pet skills and new pets update the bar by
+themselves and say so in chat, grouped after a trainer visit: "Added
+Feign Death to E", "Arcane Shot upgraded to Rank 6", "Pet Rex learned Bite
+(Rank 4), on pet bar slot 5", "New pet Whiskers (Cat): ...". Out of combat
+only, never over a key you set yourself. /nock announce off | on.
+
 New in 3.10.1
 Rebuild really rebuilds. Click Rebuild on My Rotation (or type /nock check)
 and Nock rescans your spellbook (highest rank of everything), fills newly

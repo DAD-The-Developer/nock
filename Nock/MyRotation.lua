@@ -990,3 +990,595 @@ function Nock.OnLevelUp(newLevel)
     Print(line)
   end
 end
+
+-- Auto news (3.10.2) -----------------------------------------------------------------
+-- Every time you learn a spell, get a new rank, or your pet learns something (or
+-- you tame a new pet), Nock puts it on its planned EMPTY key, repaints the bar and
+-- says what changed in chat, once, grouped. Out of combat only: in a fight it waits
+-- for the fight to end. Keys you set yourself are never replaced.
+--   /nock announce on | off    turn the chat lines off (keys are still filled)
+local A = {}
+Nock.Auto = A
+A.extra = {} -- keep-up lines ("X is now on E.") waiting to be said with the rest
+A.token = 0
+
+local function AutoOn()
+  return not (NockCharDB and NockCharDB.autoNews == false)
+end
+
+local function Fighting()
+  return InCombatLockdown and InCombatLockdown() or false
+end
+
+local function Plain(v)
+  if v == nil then
+    return nil
+  end
+  if issecretvalue then
+    local ok, secret = pcall(issecretvalue, v)
+    if ok and secret then
+      return nil
+    end
+  end
+  return v
+end
+
+local scopeSet
+local function InScope(name)
+  if not scopeSet then
+    local rows = (Nock.Data and Nock.Data.TrainerSpells) or {}
+    if #rows == 0 then
+      return false
+    end
+    scopeSet = {}
+    for _, row in ipairs(rows) do
+      scopeSet[row[2]] = true
+    end
+    if Nock.Book and Nock.Book.CATALOG then
+      for n in pairs(Nock.Book.CATALOG) do
+        scopeSet[n] = true
+      end
+    end
+    for _, r in ipairs(Nock.RacialList or {}) do
+      scopeSet[r.name] = true
+    end
+  end
+  return scopeSet[name] or (Nock.Book and Nock.Book.IsTrackName and Nock.Book.IsTrackName(name)) or false
+end
+
+local function SpellSnap()
+  local snap = {}
+  local idx = (Nock.SpellbookIndex and Nock.SpellbookIndex(true)) or {}
+  for name, v in pairs(idx) do
+    if InScope(name) then
+      snap[name] = v.rank or 1
+    end
+  end
+  return snap
+end
+
+-- Pet: what the pet knows (pet spellbook, every rank) and where it sits on the pet bar.
+local function PetScan()
+  if not (UnitExists and UnitExists("pet")) then
+    return nil
+  end
+  local name = Plain(UnitName and UnitName("pet"))
+  if type(name) ~= "string" or name == "" or name == _G.UNKNOWNOBJECT or name == _G.UNKNOWN then
+    return nil
+  end
+  local family = UnitCreatureFamily and Plain(UnitCreatureFamily("pet")) or nil
+  local snap = { name = name, family = type(family) == "string" and family or "?", ab = {}, passive = {}, slot = {}, book = {} }
+  local SB = C_SpellBook
+  local function add(n, sub, passive, index, bank, spellID)
+    n = Plain(n)
+    if type(n) ~= "string" or n == "" then
+      return
+    end
+    local rank = 1
+    sub = Plain(sub)
+    if not sub and spellID and C_Spell and C_Spell.GetSpellSubtext then
+      local ok, t = pcall(C_Spell.GetSpellSubtext, spellID)
+      sub = ok and Plain(t) or nil
+    end
+    if type(sub) == "string" and sub:lower():find("rank", 1, true) then
+      rank = tonumber(sub:match("(%d+)")) or 1
+    end
+    if not snap.ab[n] or rank >= snap.ab[n] then
+      snap.ab[n] = rank
+      snap.passive[n] = passive and true or nil
+      snap.book[n] = { index = index, bank = bank, id = spellID }
+    end
+  end
+  if SB and SB.HasPetSpells and SB.GetSpellBookItemInfo then
+    local ok, num = pcall(SB.HasPetSpells)
+    local bank = (Enum and Enum.SpellBookSpellBank and Enum.SpellBookSpellBank.Pet) or 1
+    num = ok and tonumber(num) or 0
+    for i = 1, num do
+      local okI, it = pcall(SB.GetSpellBookItemInfo, i, bank)
+      if okI and type(it) == "table" then
+        add(it.name, it.subName, it.isPassive, i, bank, it.spellID)
+      end
+    end
+  elseif HasPetSpells and GetSpellBookItemName then
+    local okH, num = pcall(HasPetSpells)
+    num = okH and tonumber(num) or 0
+    local bt = _G.BOOKTYPE_PET or "pet"
+    for i = 1, num do
+      local okN, n1, n2 = pcall(GetSpellBookItemName, i, bt)
+      if okN then
+        add(n1, n2, IsPassiveSpell and select(2, pcall(IsPassiveSpell, i, bt)) or false, i, bt, nil)
+      end
+    end
+  end
+  if GetPetActionInfo then
+    for i = 1, 10 do
+      local ok, n, _, isToken, _, _, _, spellID = pcall(GetPetActionInfo, i)
+      n = ok and Plain(n) or nil
+      if type(n) == "string" and n ~= "" and not Plain(isToken) and not n:find("^PET_") then
+        snap.slot[n] = i
+        if not snap.ab[n] then
+          add(n, nil, false, nil, nil, Plain(spellID))
+        end
+      end
+    end
+  end
+  return snap
+end
+
+-- A pet ability that is learned but not on the pet bar: drop it on an empty pet bar slot.
+-- Only an EMPTY slot, only out of combat, and only counted if the slot really holds it afterwards.
+local function PetPlace(snap, name)
+  if Fighting() or not (GetPetActionInfo and PickupPetAction) then
+    return nil
+  end
+  local b = snap.book[name]
+  if not (b and b.index) then
+    return nil
+  end
+  local empty
+  for i = 1, 10 do
+    local ok, n = pcall(GetPetActionInfo, i)
+    if ok and (n == nil or n == "") then
+      empty = i
+      break
+    end
+  end
+  if not empty then
+    return nil
+  end
+  if C_SpellBook and C_SpellBook.PickupSpellBookItem and type(b.bank) == "number" then
+    pcall(C_SpellBook.PickupSpellBookItem, b.index, b.bank)
+  elseif PickupSpell then
+    pcall(PickupSpell, b.index, b.bank or "pet")
+  end
+  if GetCursorInfo and GetCursorInfo() == nil then
+    return nil
+  end
+  pcall(PickupPetAction, empty)
+  if Nock.ClearCursorSafe then
+    Nock.ClearCursorSafe()
+  end
+  local ok, n = pcall(GetPetActionInfo, empty)
+  if ok and n == name then
+    return empty
+  end
+  return nil
+end
+
+local function PetStore()
+  NockCharDB.auto = NockCharDB.auto or {}
+  NockCharDB.auto.pets = NockCharDB.auto.pets or nil
+  return NockCharDB.auto
+end
+
+local function RememberPet(snap)
+  local st = PetStore()
+  st.pets = st.pets or {}
+  local n = 0
+  for _ in pairs(st.pets) do
+    n = n + 1
+  end
+  if n >= 30 and not st.pets[snap.name] then
+    st.pets = {}
+  end
+  local ab = {}
+  for k, v in pairs(snap.ab) do
+    ab[k] = v
+  end
+  st.pets[snap.name] = { family = snap.family, ab = ab }
+end
+
+local function AbilityText(snap, n, withRank)
+  local t = n
+  if withRank and (snap.ab[n] or 1) > 1 then
+    t = t .. " (Rank " .. snap.ab[n] .. ")"
+  elseif withRank and snap.ab[n] then
+    t = t .. " (Rank 1)"
+  end
+  return t
+end
+
+-- Returns chat lines for the pet, and records what it knows now.
+local function PetNews(silent)
+  local snap = PetScan()
+  if not snap then
+    return {}
+  end
+  local st = PetStore()
+  local first = st.pets == nil
+  local rec = st.pets and st.pets[snap.name]
+  local lines = {}
+  if not rec and not first then
+    -- A pet we have not seen: a rename of a known pet keeps family and abilities.
+    for _, r in pairs(st.pets or {}) do
+      if r.family == snap.family then
+        local same = true
+        for k, v in pairs(snap.ab) do
+          if r.ab[k] ~= v then
+            same = false
+          end
+        end
+        for k in pairs(r.ab) do
+          if snap.ab[k] == nil then
+            same = false
+          end
+        end
+        if same then
+          rec = r
+          break
+        end
+      end
+    end
+  end
+  if silent or first or (rec and not st.pets[snap.name] and rec) then
+    RememberPet(snap)
+    return {}
+  end
+  if not rec then
+    local names = {}
+    for n in pairs(snap.ab) do
+      names[#names + 1] = n
+    end
+    table.sort(names)
+    local parts, onBar = {}, 0
+    for _, n in ipairs(names) do
+      if snap.slot[n] then
+        onBar = onBar + 1
+      end
+      if #parts < 8 then
+        parts[#parts + 1] = AbilityText(snap, n, true) .. (snap.passive[n] and " (passive)" or (snap.slot[n] and (", pet bar slot " .. snap.slot[n]) or ""))
+      end
+    end
+    lines[#lines + 1] = string.format("New pet %s (%s). %d abilities, %d on the pet bar: %s%s.", snap.name, snap.family, #names, onBar,
+      table.concat(parts, "; "), #names > #parts and ("; +" .. (#names - #parts) .. " more") or "")
+    RememberPet(snap)
+    return lines
+  end
+  local added, upgraded = {}, {}
+  for n, r in pairs(snap.ab) do
+    local old = rec.ab and rec.ab[n]
+    if not old then
+      added[#added + 1] = n
+    elseif r > old then
+      upgraded[#upgraded + 1] = n
+    end
+  end
+  table.sort(added)
+  table.sort(upgraded)
+  local function where(n)
+    if snap.passive[n] then
+      return "passive, nothing to press"
+    end
+    local slot = snap.slot[n]
+    if not slot then
+      slot = PetPlace(snap, n)
+      if slot then
+        snap.slot[n] = slot
+      end
+    end
+    if slot then
+      return "on pet bar slot " .. slot
+    end
+    return "in the pet spellbook, not on the pet bar yet (drag it there)"
+  end
+  for _, n in ipairs(added) do
+    lines[#lines + 1] = string.format("Pet %s learned %s, %s.", snap.name, AbilityText(snap, n, true), where(n))
+  end
+  for _, n in ipairs(upgraded) do
+    lines[#lines + 1] = string.format("Pet %s: %s upgraded to Rank %d, %s.", snap.name, n, snap.ab[n], where(n))
+  end
+  RememberPet(snap)
+  return lines
+end
+
+-- Where a spell is now. Returns keyText (a key that really casts it, or nil), hasTile, tileKeyText.
+local function PlaceOf(name, layout, bars)
+  local tile = Nock.TileFor and (Nock.TileFor(name))
+  local r = Resolve(name, layout, bars)
+  local key = r.key
+  if not key and Nock.Book and Nock.Book.KeyForSpell then
+    key = Nock.Book.KeyForSpell(name)
+    if not key and (name == "Call Pet" or name == "Revive Pet") then
+      key = Nock.Book.KeyForSpell("pet-call")
+    end
+  end
+  return key and KeyName(key) or nil, tile ~= nil, tile and KeyName(tile) or nil
+end
+
+-- Upgraded ranks: if one of Nock's planned bar slots still holds the OLD rank of that
+-- spell, put the highest rank there. (Keys and macros cast by name, so they follow by
+-- themselves.) Only a slot that holds the same spell; anything else is left alone.
+local function UpgradeSlots(upgraded, layout)
+  local n = 0
+  if Fighting() or not GetActionInfo then
+    return 0
+  end
+  for _, name in ipairs(upgraded) do
+    for _, e in pairs(layout or {}) do
+      if e.kind == "spell" and e.name == name and e.slot and not (GetCursorInfo and GetCursorInfo()) then
+        local at, id = GetActionInfo(e.slot)
+        local best = Nock.SpellbookFind and Nock.SpellbookFind(name)
+        if at == "spell" and best and best.id and id and id ~= best.id and (Nock.SpellData and Nock.SpellData(id)) == name then
+          if Nock.PickupEntry and Nock.PickupEntry(e) then
+            PlaceAction(e.slot)
+            if Nock.ClearCursorSafe then
+              Nock.ClearCursorSafe()
+            end
+            n = n + 1
+          end
+        end
+      end
+    end
+  end
+  return n
+end
+
+local function Cap(list, max)
+  local out = {}
+  for i, v in ipairs(list) do
+    if i > max then
+      out[#out + 1] = "+" .. (#list - max) .. " more"
+      break
+    end
+    out[#out + 1] = v
+  end
+  return table.concat(out, ", ")
+end
+
+function A.Baseline()
+  if A.spells then
+    return
+  end
+  if not (Nock.IsHunter and Nock.IsHunter()) then
+    return
+  end
+  A.spells = SpellSnap()
+  local st = PetStore()
+  local snap = PetScan()
+  if snap and st.pets == nil then
+    RememberPet(snap)
+  end
+  st.pets = st.pets or {} -- from here on, a pet we have not seen is announced as new
+end
+
+-- Keep-up hands its "X is now on E." lines here instead of printing them. They are said
+-- together with the rest. Returns true when taken (false: announcements are off).
+function A.Placed(changes)
+  if not AutoOn() then
+    return false
+  end
+  for _, c in ipairs(changes or {}) do
+    A.extra[#A.extra + 1] = c
+  end
+  A.Queue()
+  return true
+end
+
+function A.Run()
+  A.queued = false
+  if not (Nock.IsHunter and Nock.IsHunter()) then
+    return
+  end
+  if Fighting() then
+    A.pending = true
+    return
+  end
+  A.pending = false
+  local old = A.spells
+  local now = SpellSnap()
+  A.spells = now
+  local layout = {}
+  local p = (Nock.ActiveProfile and Nock.ActiveProfile()) or (Nock.Profiles and Nock.Profiles.bmlvl)
+  if p then
+    layout = LayoutForProfile(p)
+  end
+  local added, upgraded = {}, {}
+  if old then
+    for name, rank in pairs(now) do
+      if old[name] == nil then
+        added[#added + 1] = name
+      elseif rank > old[name] then
+        upgraded[#upgraded + 1] = name
+      end
+    end
+    local lvl = Nock.TrainerLevel or {}
+    local function byLevel(a, b)
+      local la, lb = lvl[a] or 99, lvl[b] or 99
+      if la == lb then
+        return a < b
+      end
+      return la < lb
+    end
+    table.sort(added, byLevel)
+    table.sort(upgraded, byLevel)
+  end
+  -- Only when something changed: let keep-up bind and place what is new (idempotent: it
+  -- also runs on its own timer), then repaint the bar so the tiles are there before we say so.
+  if #added + #upgraded > 0 then
+    local S = Nock.Setup
+    if S and S.KeepUp then
+      pcall(S.KeepUp)
+    end
+    if Nock.UpdateOverlay then
+      pcall(Nock.UpdateOverlay)
+    end
+  end
+  local slots = #upgraded > 0 and UpgradeSlots(upgraded, layout) or 0
+  local bars = ScanBars()
+  local lines = {}
+  local mentioned = {}
+  if AutoOn() then
+    local addTxt, upTxt = {}, {}
+    for _, name in ipairs(added) do
+      mentioned[name] = true
+      local key, tile, tileKey = PlaceOf(name, layout, bars)
+      if key and tile then
+        addTxt[#addTxt + 1] = { name = name, line = "added " .. name .. " to " .. key, short = name .. " (" .. key .. ")" }
+      elseif key then
+        addTxt[#addTxt + 1] = { name = name, line = "added " .. name .. " on " .. key .. " (key, no tile)", short = name .. " (" .. key .. ")" }
+      elseif tile then
+        addTxt[#addTxt + 1] = { name = name, line = "learned " .. name .. ". Its tile is on " .. tileKey .. " but that key is yours, so nothing is bound (Key Bindings, or Bind Missing)", short = name .. " (tile only)" }
+      else
+        addTxt[#addTxt + 1] = { name = name, line = "learned " .. name .. ", but it has no key or tile yet (My Rotation > Bind Missing)", short = name .. " (no key yet)" }
+      end
+    end
+    for _, name in ipairs(upgraded) do
+      mentioned[name] = true
+      local key = PlaceOf(name, layout, bars)
+      local r = now[name]
+      upTxt[#upTxt + 1] = { name = name, line = name .. " upgraded to Rank " .. r .. (key and (" (" .. key .. " casts the highest rank)") or ""), short = name .. " " .. r }
+    end
+    local total = #addTxt + #upTxt
+    if total > 0 and total <= 3 then
+      for _, a in ipairs(addTxt) do
+        lines[#lines + 1] = a.line
+      end
+      for _, u in ipairs(upTxt) do
+        lines[#lines + 1] = u.line
+      end
+    elseif total > 3 then
+      local at, ut = {}, {}
+      for _, a in ipairs(addTxt) do
+        at[#at + 1] = a.short
+      end
+      for _, u in ipairs(upTxt) do
+        ut[#ut + 1] = u.short
+      end
+      lines[#lines + 1] = string.format("trained %d new spell%s and %d new rank%s.", #addTxt, #addTxt == 1 and "" or "s", #upTxt, #upTxt == 1 and "" or "s")
+      if #at > 0 then
+        lines[#lines + 1] = "Added: " .. Cap(at, 10) .. "."
+      end
+      if #ut > 0 then
+        lines[#lines + 1] = "Upgraded: " .. Cap(ut, 10) .. "."
+      end
+    end
+    if slots > 0 and #lines > 0 then
+      lines[#lines] = lines[#lines]:gsub("%.$", "") .. " Bar slot refreshed."
+    end
+    -- Keep-up lines that are not about a spell we just announced (a freed key re-bound, mouse buttons).
+    local extra = {}
+    for _, c in ipairs(A.extra) do
+      local covered = false
+      for name in pairs(mentioned) do
+        if c:find(name, 1, true) then
+          covered = true
+          break
+        end
+      end
+      if not covered then
+        extra[#extra + 1] = c
+      end
+    end
+    for i, c in ipairs(extra) do
+      if i > 3 then
+        lines[#lines + 1] = "+" .. (#extra - 3) .. " more keys filled."
+        break
+      end
+      lines[#lines + 1] = (c:gsub("%.$", ""))  .. "."
+    end
+  end
+  A.extra = {}
+  local petLines = {}
+  local okP, res = pcall(PetNews, not AutoOn())
+  if okP and AutoOn() then
+    petLines = res
+  end
+  for _, l in ipairs(lines) do
+    l = l:sub(1, 1):upper() .. l:sub(2)
+    Print(l:find("[%.%)]$") and l or (l .. "."))
+  end
+  for _, l in ipairs(petLines) do
+    Print(l)
+  end
+  if Nock.UI and Nock.UI.MyRot and Nock.UI.MyRot.Invalidate and (#added + #upgraded > 0) then
+    Nock.UI.MyRot.Invalidate()
+  end
+end
+
+-- Debounced: a trainer visit fires many events; one run, ~1.5 s after the last one.
+function A.Queue()
+  A.token = A.token + 1
+  local mine = A.token
+  A.queued = true
+  local function go()
+    if A.token == mine then
+      A.Run()
+    end
+  end
+  if C_Timer and C_Timer.After then
+    C_Timer.After(1.5, go)
+  else
+    go()
+  end
+end
+
+do
+  local f = CreateFrame and CreateFrame("Frame")
+  if f and f.RegisterEvent then
+    for _, e in ipairs({ "SPELLS_CHANGED", "LEARNED_SPELL_IN_TAB", "LEARNED_SPELL_IN_SKILL_LINE", "PLAYER_LEVEL_UP",
+      "TRAIT_CONFIG_UPDATED", "PLAYER_TALENT_UPDATE", "PLAYER_ENTERING_WORLD", "PLAYER_REGEN_ENABLED",
+      "UNIT_PET", "PET_BAR_UPDATE", "PET_UI_UPDATE", "UNIT_PET_TRAINING_POINTS", "CRAFT_UPDATE", "PET_STABLE_CLOSED" }) do
+      pcall(f.RegisterEvent, f, e)
+    end
+    f:SetScript("OnEvent", function(_, event, arg1)
+      if not (Nock.IsHunter and Nock.IsHunter()) then
+        return
+      end
+      if event == "PLAYER_ENTERING_WORLD" then
+        if not A.spells and C_Timer and C_Timer.After then
+          C_Timer.After(5, A.Baseline)
+        end
+        return
+      elseif event == "PLAYER_REGEN_ENABLED" then
+        if A.pending then
+          if C_Timer and C_Timer.After then
+            C_Timer.After(1, A.Run)
+          else
+            A.Run()
+          end
+        end
+        return
+      elseif event == "UNIT_PET" and arg1 ~= "player" then
+        return
+      end
+      if not A.spells then
+        return -- still before the first quiet baseline
+      end
+      A.Queue()
+    end)
+  end
+end
+
+local autoBaseSlash = SlashCmdList.NOCK
+SlashCmdList.NOCK = function(msg)
+  local m = string.lower(strtrim(msg or ""))
+  if m == "announce" or m == "announce on" or m == "announce off" then
+    if m == "announce on" then
+      NockCharDB.autoNews = true
+    elseif m == "announce off" then
+      NockCharDB.autoNews = false
+    end
+    return Print("New spell, rank and pet chat lines are " .. (AutoOn() and "on." or "off. Keys are still filled.") .. " /nock announce on | off")
+  end
+  return autoBaseSlash(msg)
+end

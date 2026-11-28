@@ -783,7 +783,10 @@ function S.KeepUp()
     SaveBindings(GetCurrentBindingSet())
   end
   -- 2.0: one line in chat for everything that was added.
-  if #changes == 1 then
+  -- 3.10.2: Nock.Auto says these together with new spells, ranks and pet skills.
+  if #changes > 0 and Nock.Auto and Nock.Auto.Placed and Nock.Auto.Placed(changes) then
+    -- taken
+  elseif #changes == 1 then
     Print(changes[1])
   elseif #changes > 1 then
     Print("New on your keys: " .. table.concat(S.lastAdded or {}, ", ") .. ".")

@@ -1,20 +1,16 @@
-## Nock 3.10.1 (2026-11-27)
+## Nock 3.10.2 (2026-11-27)
 
-Rebuild now really rebuilds, and Feign Death always has a tile.
+New spells, new ranks, pet skills and new pets are placed and announced by themselves.
 
 ### New
 
-- A report after Rebuild. Click Rebuild on My Rotation (or type /nock check) and Nock tells you in chat what it read from your spellbook, which spells are on a tile, which are on a key only, which are not on anything, and what your trainer still has for you.
-- /nock check feign death (any spell name) shows exactly how Nock sees that one spell: its spell id, the spellbook entry, the rank, and whether it has a tile.
+- Nock tells you what changed. When you learn a spell or a new rank, one chat line says what was added and where, for example: Added Feign Death to E, or Arcane Shot upgraded to Rank 6. After a trainer visit you get one grouped message, not a line per spell.
+- Pets too. When your pet learns something you get a line like: Pet Rex learned Bite (Rank 4), on pet bar slot 5. A new rank says upgraded. A pet you have not had before gets one line listing its abilities and their pet bar slots.
+- /nock announce off turns the chat lines off (keys are still filled). /nock announce on brings them back.
 
 ### Improved
 
-- Nock now reads your spellbook first to decide what you know, and always uses your highest rank. Before, it asked the game by spell name, which could pick the wrong rank or miss a spell you had just trained.
-- Rebuild rescans your spellbook, puts anything newly trained on its planned empty key, then repaints the bar. It never replaces a key you set yourself, and it waits for the end of a fight.
-- If a spell cannot be picked up by its id, Nock now falls back to its spellbook slot.
-
-### Fixed
-
-- Feign Death had no tile when the mouse wheel click was already yours. The bar now shows it on E in that case, like Wing Clip does on Shift-Z.
-- Spells you have not learned yet that the spellbook lists ahead of time are no longer counted as known.
+- Nothing waits for a Rebuild click any more. A short moment after the last learn event Nock places the new spell on its planned empty key, repaints the bar and says so. In a fight it waits until the fight ends.
+- A pet ability that is learned but not on the pet bar goes on the first empty pet slot. If the pet bar is full Nock says it is in the pet spellbook and changes nothing.
+- Keys you set yourself are never replaced. If a spell's key is yours, Nock says so instead of claiming it.
 
