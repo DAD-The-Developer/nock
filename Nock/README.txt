@@ -22,6 +22,16 @@ If the game says it is out of date, enable "Load out of date AddOns"
 once, then tell me the interface number from /dump select(4, GetBuildInfo()).
 
 
+New in 3.13.0
+Gold while you level, and rank badges. Every bar and pet tile shows the rank
+it casts (R6), and Nock keeps its slots on your highest rank (/nock ranks).
+Bag tooltips show vendor and Auctionator prices with a "Keep — worth selling"
+tag over 1g, greens and recipes; valuable loot gets a calm toast; skinning
+and coin camps near your level on the maps; session gold, gold per hour, bag
+value and a 100g mount fund meter on the dashboard; profession rank
+reminders; best ammo at vendors. /nock gold. Never buys, posts or sells
+anything but greys.
+
 New in 3.12.0
 The best-reward pick follows your spec. Nock reads your talent points live
 and blends the Beast Mastery, Marksmanship and Survival weights by points

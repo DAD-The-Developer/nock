@@ -348,6 +348,54 @@ Intensity (Low, Medium, High). Both are on by default.
 Works on Blizzard's bars, and on Bartender4, Dominos and ElvUI bars when
 Nock can find their buttons.
 
+Rank badges and highest ranks (new in 3.13.0)
+---------------------------------------------
+Every Nock bar tile and pet bar tile shows the rank it casts as a small R6 in
+the bottom-left corner of the icon (above the mouse badge when there is one),
+so the key at top-left, the count and the cooldown number stay clear. Spells
+without ranks (Feign Death, Auto Shot) show nothing. /nock ranks on | off, or
+Options > Rank badges on bar tiles.
+Nock's keys cast spells by name, so they always use your highest rank, and
+Nock's macros carry no rank. Action bar slots Nock placed are checked on login
+and whenever you learn a spell or rank: a slot still holding an older rank of
+the same spell is upgraded in place and announced ("Arcane Shot on bar slot 2
+upgraded from Rank 1 to Rank 3"). The pet bar is checked the same way against
+your pet's spellbook. Never in combat (it waits for the fight to end), and a
+slot holding a different spell, a macro or an item is never touched.
+
+Gold while levelling (new in 3.13.0)
+------------------------------------
+Six parts, each with a switch in Options > Tools (Gold while levelling) and
+  /nock gold value | drops | pins | dash | prof | fund  [on | off]
+Item values: bag tooltips add "Vendor 15c each, 2s 10c for 14" and, with
+  Auctionator installed, "Auction ..." (read from its price API; without it
+  only vendor prices, labelled as vendor). Items worth more than the keep
+  value (1g; /nock gold threshold 0.5 for 50s), any green or better and every
+  recipe add "Keep — worth selling". Greys say Nock sells them at the next
+  vendor. The junk seller still sells greys only, never anything else.
+Valuable loot: a calm toast when you loot something over the keep value, a
+  green or better, or a recipe / pattern, with its worth.
+Camps: skinning camps (skinnable beasts, hide pin) and coin camps (mobs that
+  drop coin, coin pin) within 3 levels below to 2 above you, on the world map
+  and minimap. Each camp is a real group of 8+ spawn spots; hover for spawn
+  count, levels, names and coin per kill. Classic data (QuestieDB / CMaNGOS);
+  Forever may differ.
+Dashboard: GOLD THIS SESSION (earned since login or /nock gold reset), gold
+  per hour (after the first minute), bag value (vendor, and auction with
+  Auctionator) and the mount fund meter.
+Professions: suggests Skinning plus Mining or Herbalism when a profession
+  slot is free, says when the next rank can be trained (Journeyman at 50 skill
+  and level 10, Expert 125 and 20, Artisan 200 and 35) and lists leather, ore,
+  herb and cloth stacks worth holding.
+Mount fund, ammo, trainer: riding 90g + mount 10g = 100g at level 40 (Classic
+  trainer and vendor prices, before reputation discounts; /nock gold mount 80
+  sets your own target, /nock gold mount auto goes back). At a vendor that
+  sells ammo: the best arrows or bullets you can use there and a cheaper,
+  weaker one. At the hunter trainer: new ranks of spells that are not on your
+  Nock bars, which can wait if gold is tight.
+Nothing here ever buys, posts on the auction house or sells anything.
+/nock gold prints session, bags, keep list, mount fund and profession tips.
+
 Reward picks follow your spec (new in 3.12.0)
 ---------------------------------------------
 Nock reads your talent points live. Each tree (Beast Mastery, Marksmanship,

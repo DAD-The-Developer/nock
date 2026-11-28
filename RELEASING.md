@@ -30,6 +30,8 @@ Whenever Nock is updated:
        python3 tests/run_check.py
        python3 tests/run_auto.py
        python3 tests/run_rewards.py
+       python3 tests/run_ranks.py
+       python3 tests/run_gold.py
 
 5. Optionally build a local shareable zip to check the contents:
 

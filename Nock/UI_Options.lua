@@ -269,6 +269,8 @@ local function Build(page)
     function() return DB().cdNumbers ~= false end, function(on) DB().cdNumbers = on and true or false end)
   add("   Soft highlight when a cooldown is ready", "One brief, calm glow when an ability with a cooldown of 8 seconds or more comes back, only if you can use it right now (mana, range, a target).",
     function() return DB().readyGlow ~= false end, function(on) DB().readyGlow = on and true or false end)
+  add("Rank badges on bar tiles", "A small R6 in the bottom-left corner of every player and pet tile shows which rank it casts. Spells without ranks show nothing. Nock keeps every slot it placed on the highest rank you know. Also /nock ranks on | off.",
+    function() return Nock.Ranks == nil or Nock.Ranks.On() end, function(on) if Nock.Ranks then Nock.Ranks.SetOn(on) end end)
   add("Range shading on every button", "Shots turn a calm red when the target is out of range or inside the dead zone; melee skills light up only in melee range; Mend Pet and Intimidation dim when your pet can't use them. Aspects, traps and Feign Death are never shaded.",
     function() return DB().barTint ~= false end, function(on) Nock.SetBarTint(on) end)
   add("Restore Blizzard bars", "Shows the default action bars again. Nock's bar stays unless you turn it off. Waits until the fight ends if you are in combat.",
