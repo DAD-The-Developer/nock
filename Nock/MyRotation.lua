@@ -1424,6 +1424,8 @@ function A.Run()
     end
   end
   local slots = #upgraded > 0 and UpgradeSlots(upgraded, layout) or 0
+  -- 3.13.0: any Nock slot (player or pet) still holding a lower rank gets the highest one
+  local swept = (Nock.Ranks and Nock.Ranks.Sweep) and Nock.Ranks.Sweep(layout) or {}
   local bars = ScanBars()
   local lines = {}
   local mentioned = {}
@@ -1510,6 +1512,11 @@ function A.Run()
   for _, l in ipairs(petLines) do
     Print(l)
   end
+  if AutoOn() then
+    for _, l in ipairs(swept) do
+      Print(l)
+    end
+  end
   if Nock.UI and Nock.UI.MyRot and Nock.UI.MyRot.Invalidate and (#added + #upgraded > 0) then
     Nock.UI.MyRot.Invalidate()
   end
@@ -1581,4 +1588,341 @@ SlashCmdList.NOCK = function(msg)
     return Print("New spell, rank and pet chat lines are " .. (AutoOn() and "on." or "off. Keys are still filled.") .. " /nock announce on | off")
   end
   return autoBaseSlash(msg)
+end
+
+-- Ranks (3.13.0) -----------------------------------------------------------------
+--[[
+  Every Nock bar tile and pet bar tile shows the rank it casts ("R6") in its
+  lower-left corner, inside the icon: clear of the key badge (top left), the
+  countdown (centre), the paw (bottom right) and the "lvl 30" line. Spells
+  without ranks show nothing. /nock ranks on | off (NockCharDB.ranks).
+
+  Highest rank, always:
+    * Nock's keys cast by name (SetBindingSpell, macros with /cast Name and no
+      rank), which the client resolves to the highest rank you know.
+    * Action-bar slots Nock placed a spell in (layout slots 1-6) hold a
+      specific rank. RK.Sweep finds a slot still holding a lower rank of the
+      same spell and drops the highest rank in its place: on login, after
+      every learn / rank-up pass (Nock.Auto) and when a fight ends. A slot that
+      holds anything else (your own spell, an item, a different spell) is left
+      alone.
+    * Pet bar: a slot whose ability is a lower rank than the pet spellbook's
+      gets the highest rank from the pet spellbook, out of combat.
+  Changes are said with the 3.10.2 announcements (/nock announce off hides them).
+]]
+local RK = {}
+Nock.Ranks = RK
+
+function RK.On()
+  return not (NockCharDB and NockCharDB.ranks == false)
+end
+
+function RK.SetOn(on)
+  NockCharDB = NockCharDB or {}
+  NockCharDB.ranks = on and true or false
+  RK.Paint()
+end
+
+local function SubRank(spellID)
+  spellID = Plain(spellID)
+  if not spellID or not (C_Spell and C_Spell.GetSpellSubtext) then
+    return nil
+  end
+  local ok, t = pcall(C_Spell.GetSpellSubtext, spellID)
+  t = ok and Plain(t) or nil
+  if type(t) == "string" and t:lower():find("rank", 1, true) then
+    return tonumber(t:match("(%d+)"))
+  end
+  return nil
+end
+RK.SubRank = SubRank
+
+-- The spell a Nock tile casts.
+function RK.TileSpell(e)
+  if type(e) ~= "table" then
+    return nil
+  end
+  if e.kind == "macro" then
+    if e.requires then
+      return e.requires
+    end
+    local body = e.macro or e.body or ""
+    local s = body:match("^#showtooltip ([^\n]+)") or body:match("/cast !?([^\n;%[]+)")
+    return s and (s:gsub("%s+$", "")) or nil
+  elseif e.kind == "spell" then
+    return e.name
+  end
+  return nil
+end
+
+-- Highest known rank of a player spell (nil = no ranks / not known).
+function RK.PlayerRank(name)
+  if not name or not Nock.SpellbookFind then
+    return nil
+  end
+  local ok, sb = pcall(Nock.SpellbookFind, name)
+  if not ok or type(sb) ~= "table" then
+    return nil
+  end
+  -- the spellbook says "Rank N" only for spells that have ranks; sbRank falls back to 1 otherwise
+  local r = SubRank(sb.id)
+  return r
+end
+
+local function BadgeOf(cap)
+  local fs = cap.nockRank
+  if fs then
+    return fs
+  end
+  local host = cap.icon or cap
+  fs = cap:CreateFontString(nil, "OVERLAY")
+  local T = _G.NockTheme
+  if T and T.EnsureFont then
+    T.EnsureFont(fs, 12, "OUTLINE")
+  else
+    pcall(fs.SetFont, fs, STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF", 12, "OUTLINE")
+  end
+  if fs.SetDrawLayer then
+    fs:SetDrawLayer("OVERLAY", 7)
+  end
+  fs:SetTextColor(0.98, 0.90, 0.62)
+  if fs.SetShadowOffset then
+    fs:SetShadowOffset(1, -1)
+  end
+  fs.host = host
+  cap.nockRank = fs
+  return fs
+end
+
+local function Place(cap, fs)
+  fs:ClearAllPoints()
+  local lift = (cap.mbadge and cap.mbadge.IsShown and cap.mbadge:IsShown()) and 9 or 2
+  fs:SetPoint("BOTTOMLEFT", fs.host, "BOTTOMLEFT", 2, lift)
+end
+
+-- Paint one tile: rank text or nothing.
+function RK.SetBadge(cap, rank)
+  if not cap then
+    return
+  end
+  if not RK.On() or not rank then
+    if cap.nockRank then
+      cap.nockRank:SetText("")
+      cap.nockRank:Hide()
+    end
+    return
+  end
+  local fs = BadgeOf(cap)
+  Place(cap, fs)
+  fs:SetText("R" .. rank)
+  fs:Show()
+end
+
+local function PetSlotRank(cap, snap)
+  local info = cap.petInfo
+  local slot = cap.slot
+  if not slot then
+    return nil
+  end
+  local ok, n, _, isToken, _, _, _, spellID = pcall(GetPetActionInfo, slot)
+  if not ok or Plain(isToken) or type(Plain(n)) ~= "string" then
+    return nil
+  end
+  local r = SubRank(spellID)
+  if not r and snap and snap.ab[n] and snap.book[n] then
+    -- no subtext for the slot's id: fall back to the pet spellbook
+    r = snap.ab[n]
+  end
+  return r, n, info
+end
+
+-- Repaint every visible Nock tile.
+function RK.Paint()
+  local ov = Nock.Overlay and Nock.Overlay()
+  if not ov then
+    return 0
+  end
+  local n = 0
+  local function each(list)
+    for _, cap in pairs(list or {}) do
+      if type(cap) == "table" and cap.IsShown then
+        local name = RK.TileSpell(cap.entry) or cap.spellName or (cap.rec and cap.rec.id)
+        local r = cap:IsShown() and RK.PlayerRank(name) or nil
+        RK.SetBadge(cap, r)
+        if r then
+          n = n + 1
+        end
+      end
+    end
+  end
+  each(ov.caps)
+  each(ov.utilCaps)
+  each(ov.extra and ov.extra.caps)
+  local pet = ov.pet
+  if pet and pet.caps and GetPetActionInfo then
+    local snap = PetScan()
+    for _, cap in ipairs(pet.caps) do
+      local r = (cap.IsShown and cap:IsShown()) and PetSlotRank(cap, snap) or nil
+      RK.SetBadge(cap, r)
+      if r then
+        n = n + 1
+      end
+    end
+  end
+  return n
+end
+
+-- Player slots: a layout slot that holds a lower rank of its own spell gets the highest rank.
+local function SweepPlayer(layout, lines)
+  if not GetActionInfo then
+    return
+  end
+  for _, e in pairs(layout or {}) do
+    if e.kind == "spell" and e.slot and not (GetCursorInfo and GetCursorInfo()) then
+      local at, id = GetActionInfo(e.slot)
+      if at == "spell" and id then
+        local best = Nock.SpellbookFind and Nock.SpellbookFind(e.name)
+        local slotName = Nock.SpellData and Nock.SpellData(id)
+        local have, top = SubRank(id), best and SubRank(best.id)
+        if best and best.id and id ~= best.id and slotName == e.name and have and top and top > have then
+          if Nock.PickupEntry and Nock.PickupEntry(e) then
+            PlaceAction(e.slot)
+            if Nock.ClearCursorSafe then
+              Nock.ClearCursorSafe()
+            elseif ClearCursor then
+              ClearCursor()
+            end
+            local _, now = GetActionInfo(e.slot)
+            if now == best.id then
+              lines[#lines + 1] = string.format("%s on bar slot %d upgraded from Rank %d to Rank %d.", e.name, e.slot, have, top)
+            end
+          end
+        end
+      end
+    end
+  end
+end
+
+-- Pet bar: a slot holding a lower rank than the pet spellbook gets the highest one.
+local function SweepPet(lines)
+  if not (GetPetActionInfo and PickupPetAction) then
+    return
+  end
+  local snap = PetScan()
+  if not snap then
+    return
+  end
+  for i = 1, 10 do
+    local ok, n, _, isToken, _, _, _, spellID = pcall(GetPetActionInfo, i)
+    n = ok and Plain(n) or nil
+    if type(n) == "string" and not Plain(isToken) and not n:find("^PET_") then
+      local have = SubRank(spellID)
+      local top = snap.ab[n]
+      local b = snap.book[n]
+      if have and top and top > have and b and b.index and not (GetCursorInfo and GetCursorInfo()) then
+        local SB = C_SpellBook
+        if SB and SB.PickupSpellBookItem then
+          pcall(SB.PickupSpellBookItem, b.index, b.bank)
+        elseif PickupSpellBookItem then
+          pcall(PickupSpellBookItem, b.index, b.bank or "pet")
+        end
+        if GetCursorInfo and GetCursorInfo() then
+          pcall(PickupPetAction, i)
+          if GetCursorInfo() and ClearCursor then
+            ClearCursor()
+          end
+          local ok2, _, _, _, _, _, _, nowID = pcall(GetPetActionInfo, i)
+          if ok2 and SubRank(nowID) == top then
+            lines[#lines + 1] = string.format("Pet bar slot %d: %s upgraded from Rank %d to Rank %d.", i, n, have, top)
+          end
+        end
+      end
+    end
+  end
+end
+
+-- Run both sweeps (out of combat only; deferred until the fight ends). Returns the lines.
+function RK.Sweep(layout)
+  if Fighting() then
+    RK.pending = true
+    return {}
+  end
+  RK.pending = false
+  if not layout then
+    local p = (Nock.ActiveProfile and Nock.ActiveProfile()) or (Nock.Profiles and Nock.Profiles.bmlvl)
+    layout = p and LayoutForProfile(p) or {}
+  end
+  local lines = {}
+  pcall(SweepPlayer, layout, lines)
+  pcall(SweepPet, lines)
+  if #lines > 0 then
+    RK.Paint()
+  end
+  return lines
+end
+
+-- Sweep and say what changed (login, end of a fight).
+function RK.SweepAndSay()
+  local lines = RK.Sweep()
+  if AutoOn() then
+    for _, l in ipairs(lines) do
+      Print(l)
+    end
+  end
+  return lines
+end
+
+do
+  local f = CreateFrame and CreateFrame("Frame")
+  if f then
+    for _, e in ipairs({ "PLAYER_ENTERING_WORLD", "SPELLS_CHANGED", "LEARNED_SPELL_IN_TAB", "PET_BAR_UPDATE", "UNIT_PET",
+      "ACTIONBAR_SLOT_CHANGED", "UPDATE_BINDINGS", "PLAYER_REGEN_ENABLED" }) do
+      pcall(f.RegisterEvent, f, e)
+    end
+    f:SetScript("OnEvent", function(_, event)
+      if event == "PLAYER_ENTERING_WORLD" and C_Timer and C_Timer.After then
+        C_Timer.After(4, function()
+          RK.SweepAndSay()
+          RK.Paint()
+        end)
+      elseif event == "PLAYER_REGEN_ENABLED" and RK.pending then
+        RK.SweepAndSay()
+      end
+      if C_Timer and C_Timer.After and not RK.queued then
+        RK.queued = true
+        C_Timer.After(0.4, function()
+          RK.queued = false
+          pcall(RK.Paint)
+        end)
+      end
+    end)
+    -- layouts rebuild tiles; a light repaint once a second keeps the badges right
+    local acc = 0
+    f:SetScript("OnUpdate", function(_, dt)
+      acc = acc + (dt or 0)
+      if acc >= 1 then
+        acc = 0
+        pcall(RK.Paint)
+      end
+    end)
+  end
+end
+
+local rkBaseSlash = SlashCmdList and SlashCmdList.NOCK
+if rkBaseSlash then
+  SlashCmdList.NOCK = function(msg)
+    local m = string.lower(strtrim and strtrim(msg or "") or (msg or ""))
+    local cmd, rest = m:match("^(%S+)%s*(.*)$")
+    if cmd == "ranks" then
+      if rest == "on" or rest == "off" then
+        RK.SetOn(rest == "on")
+      end
+      Print("Rank badges on bar tiles: " .. (RK.On() and "on" or "off") .. ". Bars always keep the highest rank.")
+      return
+    end
+    rkBaseSlash(msg)
+    if m == "help" then
+      Print("/nock ranks on | off — rank badges (R6) on Nock's bar and pet bar tiles")
+    end
+  end
 end
