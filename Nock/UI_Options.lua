@@ -149,6 +149,13 @@ local function Build(page)
       function() return QDrops.Enabled() end, function(on) QDrops.SetEnabled(on) end)
   end
 
+  -- 3.11.0: best reward for a hunter on the quest turn-in screen.
+  local Rewards = Nock.Rewards
+  if Rewards then
+    add("Best quest reward for a hunter", "When you turn a quest in, Nock marks the best reward with a gold border and a small Nock pick tag, and every choice shows how much of an upgrade it is over what you wear (+12%, same, downgrade, new slot). A short reason is in the tooltip and under the quest window. Nothing is ever chosen for you. If nothing is an upgrade it picks the one that sells for the most. Also /nock rewards on | off.",
+      function() return Rewards.Enabled() end, function(on) Rewards.SetEnabled(on) end)
+  end
+
   -- 3.7.0: the Dashboard (bags, ammo, tracked quests), for a corner of the
   -- screen or a second monitor.
   local Dash = Nock.Dash

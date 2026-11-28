@@ -22,6 +22,15 @@ If the game says it is out of date, enable "Load out of date AddOns"
 once, then tell me the interface number from /dump select(4, GetBuildInfo()).
 
 
+New in 3.11.0
+Turning a quest in now shows the best reward for a hunter: a gold border and
+a small "Nock pick" tag on that choice, plus a short reason in its tooltip
+and under the quest window ("+5 Agility, +14% upgrade over your Hunting
+Bow"). Every choice shows its upgrade over what you wear: +12%, same,
+downgrade, new slot, or - when you can't use it. No upgrade at all: the one
+that sells for the most. Nock only marks, it never picks for you.
+/nock rewards on | off.
+
 New in 3.10.2
 New spells, new ranks, pet skills and new pets update the bar by
 themselves and say so in chat, grouped after a trainer visit: "Added

@@ -348,6 +348,23 @@ Intensity (Low, Medium, High). Both are on by default.
 Works on Blizzard's bars, and on Bartender4, Dominos and ElvUI bars when
 Nock can find their buttons.
 
+Best quest reward for a hunter (new in 3.11.0)
+----------------------------------------------
+When a quest offers a choice of rewards, Nock scores each one for a hunter and
+marks the best: a gold border and a small "Nock pick" tag in the corner of that
+choice. Every other choice gets a compact tag: "+12%" (an upgrade over the item
+in that slot), "same", "downgrade", "new slot" (nothing worn there), "lvl 40"
+(you can use it later) or "-" (a hunter can't use it). Hover a choice for the
+reason, or read the line under the quest window.
+How it scores: Agility counts most, then attack power, crit and hit, then
+Stamina, Intellect, Spirit and Strength. Bows, guns and crossbows count their
+DPS heavily. Rings and trinkets replace the weaker of your two; a two-hander is
+weighed against both hands; an off-hand weapon needs Dual Wield. Mail counts
+from level 40; plate, shields, maces and wands never. If nothing is an upgrade
+the pick is the choice that vendors for the most ("No upgrade, best to sell").
+Nock never chooses a reward and never turns the quest in. /nock rewards off
+turns it off (Options > Best quest reward for a hunter).
+
 Automatic updates and chat lines (new in 3.10.2)
 ------------------------------------------------
 You do not need to click Rebuild after training. About a second and a half

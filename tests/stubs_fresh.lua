@@ -53,7 +53,7 @@ function IsModifierKeyDown() return false end
 function GetScreenWidth() return 1920 end
 function GetScreenHeight() return 1080 end
 function GetAddOnMetadata(a, k)
-  if k == "Version" then return "3.10.2" end
+  if k == "Version" then return "3.11.0" end
   if k == "Title" then return "Nock" end
 end
 C_Timer = { After = function(_, fn) end }

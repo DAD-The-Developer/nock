@@ -14,8 +14,8 @@ TESTS = Path("/workspace/nock/tests")
 toc = (ROOT / "Nock.toc").read_text()
 if "## Interface: 16001" not in toc:
     sys.exit("TOC Interface is not 16001")
-if "## Version: 3.10.2" not in toc:
-    sys.exit("TOC Version is not 3.10.2")
+if "## Version: 3.11.0" not in toc:
+    sys.exit("TOC Version is not 3.11.0")
 
 lua_files = [
     line.strip()
@@ -84,8 +84,8 @@ def fail(msg):
 nock = g.Nock
 if not nock:
     fail("Nock global missing after load")
-if nock.Version != "3.10.2":
-    fail("Nock.Version is %r, expected 3.10.2" % (nock.Version,))
+if nock.Version != "3.11.0":
+    fail("Nock.Version is %r, expected 3.11.0" % (nock.Version,))
 
 theme = g.NockTheme
 if not theme:

@@ -1,16 +1,16 @@
-## Nock 3.10.2 (2026-11-27)
+## Nock 3.11.0 (2026-11-27)
 
-New spells, new ranks, pet skills and new pets are placed and announced by themselves.
+Quest turn-ins show the best reward for a hunter, and how big an upgrade each one is.
 
 ### New
 
-- Nock tells you what changed. When you learn a spell or a new rank, one chat line says what was added and where, for example: Added Feign Death to E, or Arcane Shot upgraded to Rank 6. After a trainer visit you get one grouped message, not a line per spell.
-- Pets too. When your pet learns something you get a line like: Pet Rex learned Bite (Rank 4), on pet bar slot 5. A new rank says upgraded. A pet you have not had before gets one line listing its abilities and their pet bar slots.
-- /nock announce off turns the chat lines off (keys are still filled). /nock announce on brings them back.
+- Best reward for a hunter. When you turn a quest in, the best choice gets a gold border and a small Nock pick tag. A short reason is in its tooltip and under the quest window, for example: +5 Agility, +14% upgrade over your Hunting Bow.
+- Every choice shows how much of an upgrade it is over what you wear in that slot: +12%, same, downgrade, new slot (nothing worn there yet), or - when a hunter can't use it. The same shows in the quest preview and the quest log.
+- No upgrade in the list? Nock marks the reward that sells for the most: No upgrade, best to sell (1g 20s).
+- /nock rewards on | off, or Options > Best quest reward for a hunter. Nock only marks; it never picks a reward or turns the quest in for you.
 
 ### Improved
 
-- Nothing waits for a Rebuild click any more. A short moment after the last learn event Nock places the new spell on its planned empty key, repaints the bar and says so. In a fight it waits until the fight ends.
-- A pet ability that is learned but not on the pet bar goes on the first empty pet slot. If the pet bar is full Nock says it is in the pet spellbook and changes nothing.
-- Keys you set yourself are never replaced. If a spell's key is yours, Nock says so instead of claiming it.
+- Scores like a hunter: Agility first, then attack power, crit and hit, then Stamina, Intellect, Spirit and Strength. Bows, guns and crossbows count their DPS heavily. Rings and trinkets replace the weaker of your two, and a two-hander is weighed against both hands.
+- Plate, shields, maces, wands, other classes' gear, mail before level 40 and anything above your level are never picked. Items the game hasn't loaded yet are requested and checked again by themselves.
 

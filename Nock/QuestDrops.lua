@@ -422,3 +422,1125 @@ if baseSlash then
     end
   end
 end
+
+--[[
+  Nock 3.11.0: quest reward picks.
+
+  On the reward choice screen (turning a quest in, the quest preview when
+  you accept it, and the quest log) Nock scores every choice for a hunter
+  and marks the best one. It never selects a reward and never completes
+  the quest: it only draws.
+
+    * the pick gets a thin gold border and a small "Nock pick" tag in the
+      lower right corner of its button (the icon and its count are left
+      alone). Every other choice gets a compact tag: "+12%", "same",
+      "downgrade", "new slot", or "-" when you can't use it.
+    * a short reason sits in the item tooltip and in a slim line under the
+      quest window: "+5 Agility, +14% upgrade over your Hunting Bow".
+    * nothing is an upgrade: the pick is the choice that vendors for the
+      most: "No upgrade, best to sell (1g 20s)".
+
+  How it scores (RW.W): Agility 2.4, attack power 1, ranged attack power 1,
+  crit 18 per 1%, hit 14 per 1%, Stamina 0.5, Intellect 0.4, Spirit 0.15,
+  Strength 0.2, mana per 5 sec 0.6, armor 0.04, resistances 0.3. Weapon DPS
+  counts 14 each on a ranged weapon (it is most of a hunter's damage), 3 on
+  thrown, 2 on a main hand or two-hander and 1 on an off hand. The reward is
+  compared with what is worn in the slot it would take (two slots for rings
+  and trinkets: the weaker one; a two-hander replaces both hands; a one-hand
+  weapon goes to whichever hand gains most, the off hand only with Dual
+  Wield). An empty slot is "new slot". The percentage is the score gain over
+  the item it replaces.
+
+  Never picked: plate, shields, maces, wands and other things hunters can't
+  use, mail before level 40, gear above your level, anything the tooltip
+  shows in red (class or skill requirements).
+
+  Item facts come from GetItemInfo, the item's tooltip (stats, armor, DPS)
+  and GetItemStats, per stat the stats API wins when it has the stat. An
+  item the client hasn't cached yet is requested and retried on
+  GET_ITEM_INFO_RECEIVED and a short timer; no pick is drawn until every
+  choice can be read (or the retries run out).
+
+  Option: NockCharDB.rewards (on by default), Options > Hunter tools,
+  /nock rewards on | off.
+]]
+
+local RW = {}
+Nock.Rewards = RW
+
+RW.W = { agi = 2.4, ap = 1.0, rap = 1.0, crit = 18, hit = 14, sta = 0.5, int = 0.4, spi = 0.15, str = 0.2,
+  mp5 = 0.6, armor = 0.04, res = 0.3 }
+RW.DPS = { ranged = 14, thrown = 3, main = 2, off = 1 }
+RW.NAMES = { agi = "Agility", ap = "Attack Power", rap = "Ranged Attack Power", sta = "Stamina", int = "Intellect",
+  spi = "Spirit", str = "Strength", mp5 = "mana per 5 sec", armor = "Armor", res = "resistance" }
+RW.UPGRADE_PCT = 2          -- under this much either way is "same"
+RW.MAIL_LEVEL = 40
+RW.cache = {}
+RW.pending = {}
+RW.tries = 0
+
+-- weapon subclasses a hunter may use (axes, 2h axes, bows, guns, polearms, swords, 2h swords, staves, fist, daggers, thrown, crossbows)
+local WEAPON_OK = { [0] = true, [1] = true, [2] = true, [3] = true, [6] = true, [7] = true, [8] = true, [10] = true,
+  [13] = true, [15] = true, [16] = true, [18] = true }
+local SLOTS = {
+  INVTYPE_HEAD = { 1 }, INVTYPE_NECK = { 2 }, INVTYPE_SHOULDER = { 3 }, INVTYPE_CHEST = { 5 }, INVTYPE_ROBE = { 5 },
+  INVTYPE_WAIST = { 6 }, INVTYPE_LEGS = { 7 }, INVTYPE_FEET = { 8 }, INVTYPE_WRIST = { 9 }, INVTYPE_HAND = { 10 },
+  INVTYPE_FINGER = { 11, 12 }, INVTYPE_TRINKET = { 13, 14 }, INVTYPE_CLOAK = { 15 },
+  INVTYPE_RANGED = { 18 }, INVTYPE_RANGEDRIGHT = { 18 }, INVTYPE_THROWN = { 18 },
+  INVTYPE_WEAPONMAINHAND = { 16 }, INVTYPE_2HWEAPON = { 16 }, INVTYPE_WEAPON = { 16, 17 },
+  INVTYPE_WEAPONOFFHAND = { 17 }, INVTYPE_HOLDABLE = { 17 }, INVTYPE_SHIELD = { 17 },
+}
+local SLOT_NAME = { [1] = "head", [2] = "neck", [3] = "shoulders", [5] = "chest", [6] = "waist", [7] = "legs",
+  [8] = "feet", [9] = "wrists", [10] = "hands", [11] = "ring", [12] = "ring", [13] = "trinket", [14] = "trinket",
+  [15] = "back", [16] = "main hand", [17] = "off hand", [18] = "ranged" }
+local ARMOR_NAME = { [1] = "Cloth", [2] = "Leather", [3] = "Mail", [4] = "Plate" }
+RW.SLOT_NAME = SLOT_NAME
+
+function RW.Enabled()
+  local db = _G.NockCharDB
+  return not (type(db) == "table" and db.rewards == false)
+end
+
+function RW.SetEnabled(on)
+  _G.NockCharDB = _G.NockCharDB or {}
+  _G.NockCharDB.rewards = on and true or false
+  RW.Refresh()
+end
+
+local function RStr(v)
+  if type(v) ~= "string" or Core.IsSecret(v) then
+    return nil
+  end
+  return v
+end
+
+local function Clean(s)
+  s = RStr(s)
+  if not s then
+    return ""
+  end
+  s = s:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
+  return s
+end
+
+-- A format string from the client ("%d Armor") as a Lua pattern; %s takes `sub`.
+local function Pat(fmt, default, sub)
+  fmt = RStr(fmt) or default
+  local p = fmt:gsub("[%^%$%(%)%.%[%]%*%+%-%?]", "%%%0")
+  p = p:gsub("%%d", function() return "(%d+)" end)
+  p = p:gsub("%%s", function() return sub or "(.+)" end)
+  return "^" .. p .. "$", p
+end
+
+function RW.Coin(copper)
+  copper = math.floor(tonumber(copper) or 0)
+  local g, s, c = math.floor(copper / 10000), math.floor((copper % 10000) / 100), copper % 100
+  if g > 0 then
+    return s > 0 and string.format("%dg %ds", g, s) or string.format("%dg", g)
+  elseif s > 0 then
+    return c > 0 and string.format("%ds %dc", s, c) or string.format("%ds", s)
+  end
+  return string.format("%dc", c)
+end
+
+local function ItemInfo(link)
+  local fn = (C_Item and C_Item.GetItemInfo) or GetItemInfo
+  if not fn then
+    return nil
+  end
+  return fn(link)
+end
+
+local function ItemID(link)
+  link = RStr(link)
+  return link and tonumber(link:match("item:(%d+)")) or nil
+end
+
+function RW.Request(id)
+  if not id then
+    return
+  end
+  RW.pending[id] = true
+  if C_Item and C_Item.RequestLoadItemDataByID then
+    pcall(C_Item.RequestLoadItemDataByID, id)
+  end
+end
+
+-- Tooltip lines of an item link: { {left=, right=, red=} ... } or nil when the tooltip has no data yet.
+function RW.ScanLines(link)
+  if not CreateFrame then
+    return nil
+  end
+  local ok, out = pcall(function()
+    local tip = RW.tip
+    if not tip then
+      tip = CreateFrame("GameTooltip", "NockRewardScan", UIParent, "GameTooltipTemplate")
+      RW.tip = tip
+    end
+    tip:SetOwner(UIParent, "ANCHOR_NONE")
+    tip:ClearLines()
+    tip:SetHyperlink(link)
+    local lines = {}
+    for i = 1, tip:NumLines() do
+      local L, R = _G["NockRewardScanTextLeft" .. i], _G["NockRewardScanTextRight" .. i]
+      local row = { left = L and L:GetText() or "", right = R and R:GetText() or "" }
+      if L and L.GetTextColor then
+        local r, g, b = L:GetTextColor()
+        row.red = type(r) == "number" and r > 0.85 and g < 0.3 and b < 0.3
+      end
+      lines[#lines + 1] = row
+    end
+    return #lines > 0 and lines or nil
+  end)
+  return ok and out or nil
+end
+
+local STAT_KEYS = { ITEM_MOD_AGILITY_SHORT = "agi", ITEM_MOD_STRENGTH_SHORT = "str", ITEM_MOD_STAMINA_SHORT = "sta",
+  ITEM_MOD_INTELLECT_SHORT = "int", ITEM_MOD_SPIRIT_SHORT = "spi", ITEM_MOD_ATTACK_POWER_SHORT = "ap",
+  ITEM_MOD_RANGED_ATTACK_POWER_SHORT = "rap", ITEM_MOD_MANA_REGENERATION_SHORT = "mp5" }
+local PRIMARY = { { "agi", "ITEM_MOD_AGILITY_SHORT", "Agility" }, { "str", "ITEM_MOD_STRENGTH_SHORT", "Strength" },
+  { "sta", "ITEM_MOD_STAMINA_SHORT", "Stamina" }, { "int", "ITEM_MOD_INTELLECT_SHORT", "Intellect" },
+  { "spi", "ITEM_MOD_SPIRIT_SHORT", "Spirit" } }
+-- "Equip:" effects that give a plain number
+local EQUIP = {
+  { "^increases attack power by (%d+)%.?$", "ap" },
+  { "^increases ranged attack power by (%d+)%.?$", "rap" },
+  { "^improves your chance to get a critical strike by (%d+)%%%.?$", "crit" },
+  { "^improves your chance to hit by (%d+)%%%.?$", "hit" },
+  { "^restores (%d+) mana per 5 sec%.?$", "mp5" },
+}
+-- "Equip:" effects a hunter has no use for or that are not worth a flag
+local IGNORE = { "spell", "healing", "defense", "block", "dodge", "parry", "health", "resilience", "increased %a+ %+?%d+",
+  "armor penetration", "weapon damage" }
+
+function RW.Parse(lines, f)
+  local pEquip = RStr(_G.ITEM_SPELL_TRIGGER_ONEQUIP) or "Equip:"
+  local pArmor = Pat(_G.ARMOR_TEMPLATE, "%d Armor")
+  local _, pDps = Pat(_G.DPS_TEMPLATE, "(%s damage per second)", "([%d%.,]+)")
+  local pLevel = Pat(_G.ITEM_MIN_LEVEL, "Requires Level %d")
+  local pClasses = (RStr(_G.ITEM_CLASSES_ALLOWED) or "Classes: %s"):gsub("%%s", ""):gsub("%s+$", "")
+  local pUse = RStr(_G.ITEM_SPELL_TRIGGER_ONUSE) or "Use:"
+  local pProc = RStr(_G.ITEM_SPELL_TRIGGER_ONPROC) or "Chance on hit:"
+  local _, myClass = nil, nil
+  if UnitClass then
+    myClass = UnitClass("player")
+  end
+  local stats = f.stats
+  for idx, ln in ipairs(lines) do
+    local t = Clean(ln.left)
+    if t ~= "" and idx > 1 then
+      if t:find(pClasses, 1, true) == 1 then
+        if myClass and not t:find(myClass, 1, true) then
+          f.classBlock = true
+        end
+      elseif ln.red and not t:match(pLevel) and not t:find("^Requires Level") then
+        f.redText = f.redText or t
+      end
+      local armor = t:match(pArmor) or t:match("^%+(%d+) Armor$")
+      if armor then
+        f.armor = (f.armor or 0) + tonumber(armor)
+      end
+      local dps = t:match(pDps)
+      if dps then
+        f.dps = tonumber((dps:gsub(",", "."))) or f.dps
+      end
+      for _, p in ipairs(PRIMARY) do
+        local word = RStr(_G[p[2]]) or p[3]
+        local v = t:match("^([%+%-]%d+) " .. word:gsub("[%^%$%(%)%.%[%]%*%+%-%?]", "%%%0") .. "$")
+        if v then
+          stats[p[1]] = (stats[p[1]] or 0) + tonumber(v)
+        end
+      end
+      local res = t:match("^%+(%d+) %a+ Resistance$")
+      if res then
+        stats.res = (stats.res or 0) + tonumber(res)
+      end
+      local body = t:find(pEquip, 1, true) == 1 and t:sub(#pEquip + 1):gsub("^%s+", "") or nil
+      if body then
+        local low = body:lower()
+        local hit
+        for _, e in ipairs(EQUIP) do
+          local v = low:match(e[1])
+          if v then
+            stats[e[2]] = (stats[e[2]] or 0) + tonumber(v)
+            hit = true
+            break
+          end
+        end
+        if not hit then
+          local skip
+          for _, w in ipairs(IGNORE) do
+            if low:find(w) then
+              skip = true
+              break
+            end
+          end
+          if not skip then
+            f.unscored = true
+          end
+        end
+      elseif t:find(pUse, 1, true) == 1 or t:find(pProc, 1, true) == 1 then
+        f.unscored = true
+      end
+    end
+  end
+end
+
+-- Everything about an item the scorer needs. nil, "uncached" when the client doesn't have it yet.
+function RW.Facts(link)
+  link = RStr(link)
+  if not link then
+    return nil, "nolink"
+  end
+  local hit = RW.cache[link]
+  if hit then
+    return hit
+  end
+  local id = ItemID(link)
+  local name, _, quality, _, minLevel, _, subName, _, equipLoc, _, sell, classID, subID = ItemInfo(link)
+  if not name then
+    RW.Request(id)
+    return nil, "uncached", id
+  end
+  local lines = RW.ScanLines(link)
+  if not lines then
+    RW.Request(id)
+    return nil, "uncached", id
+  end
+  local f = { link = link, id = id, name = name, quality = quality, minLevel = tonumber(minLevel) or 0,
+    subName = subName, equipLoc = equipLoc or "", sell = tonumber(sell) or 0, classID = classID, subID = subID,
+    stats = {} }
+  pcall(RW.Parse, lines, f)
+  local gs = (C_Item and C_Item.GetItemStats) or GetItemStats
+  if gs then
+    local ok, api = pcall(gs, link)
+    if ok and type(api) == "table" then
+      for key, short in pairs(STAT_KEYS) do
+        if type(api[key]) == "number" then
+          f.stats[short] = api[key]
+        end
+      end
+      if type(api.ITEM_MOD_DAMAGE_PER_SECOND_SHORT) == "number" and not f.dps then
+        f.dps = api.ITEM_MOD_DAMAGE_PER_SECOND_SHORT
+      end
+    end
+  end
+  RW.cache[link] = f
+  return f
+end
+
+-- Hunters wear mail from level 40; plate, shields, maces, wands: never.
+function RW.Usable(f)
+  local lvl = (UnitLevel and UnitLevel("player")) or 1
+  local locked, why
+  if f.classBlock then
+    return false, "Not for hunters"
+  end
+  if f.classID == 4 then
+    local s = f.subID
+    if s == 3 and lvl < RW.MAIL_LEVEL then
+      locked, why = RW.MAIL_LEVEL, "Mail: hunters wear it from level " .. RW.MAIL_LEVEL
+    elseif s == 4 then
+      return false, "Plate: hunters can't wear it"
+    elseif s == 6 then
+      return false, "Hunters can't use shields"
+    elseif s == 7 or s == 8 or s == 9 or s == 10 then
+      return false, "Hunters can't use this"
+    end
+  elseif f.classID == 2 and not WEAPON_OK[f.subID] then
+    return false, "Hunters can't use " .. tostring(f.subName or "this weapon")
+  end
+  if not locked and f.redText then
+    return false, f.redText
+  end
+  if f.minLevel and f.minLevel > lvl and f.minLevel > (locked or 0) then
+    locked, why = f.minLevel, "Needs level " .. f.minLevel
+  end
+  if locked then
+    return false, why, locked
+  end
+  return true
+end
+
+local function DpsOf(f, slot)
+  if not f.dps then
+    return 0
+  end
+  if slot == 18 then
+    return f.dps * ((f.equipLoc == "INVTYPE_THROWN") and RW.DPS.thrown or RW.DPS.ranged)
+  elseif slot == 17 then
+    return f.dps * RW.DPS.off
+  end
+  return f.dps * RW.DPS.main
+end
+
+function RW.Score(f, slot)
+  local s = 0
+  for k, v in pairs(f.stats) do
+    local w = RW.W[k]
+    if w then
+      s = s + v * w
+    end
+  end
+  return s + (f.armor or 0) * RW.W.armor + DpsOf(f, slot)
+end
+
+local function KnowsDualWield()
+  local lvl = (UnitLevel and UnitLevel("player")) or 1
+  local fn = IsSpellKnown or IsPlayerSpell
+  if fn then
+    local ok, v = pcall(fn, 674)
+    if ok and v then
+      return true
+    end
+    return false
+  end
+  return lvl >= 20
+end
+
+-- What is worn in a slot: facts, or nil when empty; second value true when it can't be read yet.
+local function Worn(slot)
+  local link = GetInventoryItemLink and GetInventoryItemLink("player", slot)
+  if not link then
+    return nil, false
+  end
+  local f = RW.Facts(link)
+  if not f then
+    return nil, true
+  end
+  return f, false
+end
+
+local function IsTwoHand(f)
+  return f and f.equipLoc == "INVTYPE_2HWEAPON"
+end
+
+-- How much better is this item than what it would replace?
+-- Returns { new=, old=, delta=, pct=, newslot=bool, repl={facts}, slot=name } or nil, "pending" / { nocompare = text }.
+function RW.Compare(f)
+  local slots = SLOTS[f.equipLoc]
+  if not slots then
+    return { nogear = true }
+  end
+  local loc = f.equipLoc
+  local mh, p1 = Worn(16)
+  local oh, p2 = Worn(17)
+  if loc == "INVTYPE_2HWEAPON" or loc == "INVTYPE_WEAPON" or loc == "INVTYPE_WEAPONMAINHAND" or loc == "INVTYPE_WEAPONOFFHAND"
+    or loc == "INVTYPE_HOLDABLE" or loc == "INVTYPE_SHIELD" then
+    if p1 or p2 then
+      return nil, "pending"
+    end
+  end
+  local function build(slot, newScore, repl)
+    local old = 0
+    for _, r in ipairs(repl) do
+      old = old + RW.Score(r[1], r[2])
+    end
+    local c = { new = newScore, old = old, delta = newScore - old, newslot = #repl == 0, repl = {}, slot = SLOT_NAME[slot] }
+    for _, r in ipairs(repl) do
+      c.repl[#c.repl + 1] = r[1]
+    end
+    if not c.newslot then
+      c.pct = old > 0.01 and (c.delta / old * 100) or (c.delta > 0 and 999 or 0)
+    end
+    return c
+  end
+  if loc == "INVTYPE_2HWEAPON" then
+    local repl = {}
+    if mh then repl[#repl + 1] = { mh, 16 } end
+    if oh then repl[#repl + 1] = { oh, 17 } end
+    return build(16, RW.Score(f, 16), repl)
+  elseif loc == "INVTYPE_WEAPONMAINHAND" then
+    return build(16, RW.Score(f, 16), mh and { { mh, 16 } } or {})
+  elseif loc == "INVTYPE_WEAPON" or loc == "INVTYPE_WEAPONOFFHAND" or loc == "INVTYPE_HOLDABLE" then
+    local best
+    if loc == "INVTYPE_WEAPON" then
+      best = build(16, RW.Score(f, 16), mh and { { mh, 16 } } or {})
+    end
+    local needsDW = loc ~= "INVTYPE_HOLDABLE"
+    if IsTwoHand(mh) then
+      if not best then
+        return { nocompare = "needs a one-handed main hand" }
+      end
+    elseif not needsDW or KnowsDualWield() then
+      local alt = build(17, RW.Score(f, 17), oh and { { oh, 17 } } or {})
+      if not best or alt.delta > best.delta then
+        best = alt
+      end
+    elseif not best then
+      return { nocompare = "needs Dual Wield", locked = 20 }
+    end
+    return best
+  elseif loc == "INVTYPE_SHIELD" then
+    return { nocompare = "hunters can't use shields" }
+  end
+  -- plain slots, one or two (rings, trinkets: the weaker one goes)
+  local worn, weakest, weakestScore = {}, nil, nil
+  local empty = false
+  for _, s in ipairs(slots) do
+    local wf, pending = Worn(s)
+    if pending then
+      return nil, "pending"
+    end
+    if not wf then
+      empty = true
+    else
+      local sc = RW.Score(wf, s)
+      if not weakestScore or sc < weakestScore then
+        weakest, weakestScore = { wf, s }, sc
+      end
+    end
+  end
+  local slot = slots[1]
+  if empty then
+    return build(slot, RW.Score(f, slot), {})
+  end
+  return build(weakest[2], RW.Score(f, weakest[2]), { weakest })
+end
+
+-- Plain words: "+5 Agility, +12 Attack Power" (what the item has more of than the one it replaces).
+function RW.StatText(f, c)
+  local diffs = {}
+  local old = {}
+  local oldDps, oldArmor = 0, 0
+  for _, r in ipairs(c.repl or {}) do
+    for k, v in pairs(r.stats) do
+      old[k] = (old[k] or 0) + v
+    end
+    oldArmor = oldArmor + (r.armor or 0)
+  end
+  for k, v in pairs(f.stats) do
+    diffs[k] = v - (old[k] or 0)
+  end
+  for k, v in pairs(old) do
+    if diffs[k] == nil then
+      diffs[k] = -v
+    end
+  end
+  if (f.armor or 0) - oldArmor ~= 0 then
+    diffs.armor = (f.armor or 0) - oldArmor
+  end
+  local keys = {}
+  for k, v in pairs(diffs) do
+    if v ~= 0 and RW.W[k] then
+      keys[#keys + 1] = k
+    end
+  end
+  table.sort(keys, function(a, b)
+    local wa, wb = math.abs(diffs[a] * RW.W[a]), math.abs(diffs[b] * RW.W[b])
+    if wa ~= wb then
+      return wa > wb
+    end
+    return a < b
+  end)
+  local parts = {}
+  if f.dps and (f.equipLoc ~= "" and (f.classID == 2)) then
+    local od = 0
+    for _, r in ipairs(c.repl or {}) do
+      od = od + (r.dps or 0)
+    end
+    if #(c.repl or {}) == 1 or c.newslot then
+      parts[#parts + 1] = string.format("DPS %s%.1f", (not c.newslot) and string.format("%.1f to ", od) or "", f.dps)
+    end
+  end
+  for _, k in ipairs(keys) do
+    if #parts >= 3 then
+      break
+    end
+    local v = diffs[k]
+    local sign = v > 0 and "+" or "-"
+    local n = math.abs(v)
+    if k == "crit" or k == "hit" then
+      parts[#parts + 1] = string.format("%s%d%% %s", sign, n, k)
+    elseif k == "armor" then
+      if math.abs(v) >= 5 then
+        parts[#parts + 1] = string.format("%s%d Armor", sign, n)
+      end
+    else
+      parts[#parts + 1] = string.format("%s%d %s", sign, n, RW.NAMES[k])
+    end
+  end
+  return table.concat(parts, ", ")
+end
+
+local function PctText(p)
+  if p >= 300 then
+    return "+300%+"
+  end
+  return string.format("%s%d%%", p >= 0 and "+" or "-", math.floor(math.abs(p) + 0.5))
+end
+
+local function ArmorLabel(f)
+  if f.classID == 4 and ARMOR_NAME[f.subID] and f.equipLoc ~= "INVTYPE_CLOAK" then
+    return ARMOR_NAME[f.subID]
+  end
+  return nil
+end
+
+-- Judge one reward: state = upgrade | newslot | same | downgrade | unusable | later | nogear | nocompare
+function RW.Judge(f)
+  local r = { f = f, name = f.name, sell = f.sell }
+  local ok, why, lockedLvl = RW.Usable(f)
+  r.armor = ArmorLabel(f)
+  if not ok and not lockedLvl then
+    r.state, r.why = "unusable", why
+    return r
+  end
+  local c, pend = RW.Compare(f)
+  if not c then
+    return nil, pend
+  end
+  if c.nogear then
+    r.state, r.why = "nogear", "Not equipment"
+    return r
+  end
+  if c.nocompare then
+    r.state, r.why = "nocompare", "Can't compare: " .. c.nocompare
+    if c.locked then
+      lockedLvl = lockedLvl or c.locked
+    end
+    if not lockedLvl then
+      return r
+    end
+  end
+  r.cmp = c
+  r.delta, r.pct, r.slot = c.delta, c.pct, c.slot
+  if c.repl and c.repl[1] then
+    r.over = c.repl[1].name
+  end
+  if lockedLvl then
+    r.state, r.why, r.level = "later", why, lockedLvl
+    return r
+  end
+  if c.newslot then
+    r.state = c.delta > 0.5 and "newslot" or "same"
+  elseif c.pct >= RW.UPGRADE_PCT then
+    r.state = "upgrade"
+  elseif c.pct <= -RW.UPGRADE_PCT then
+    r.state = "downgrade"
+  else
+    r.state = "same"
+  end
+  return r
+end
+
+function RW.Reason(r)
+  local f = r.f
+  local pre = r.armor or ((f.classID == 2 and f.subName) or nil)
+  local bits = {}
+  if r.cmp and (r.state == "upgrade" or r.state == "newslot" or r.state == "later") then
+    local st = RW.StatText(f, r.cmp)
+    if st ~= "" then
+      bits[#bits + 1] = st
+    end
+    if r.state == "newslot" or (r.state == "later" and r.cmp.newslot) then
+      bits[#bits + 1] = "new slot (" .. (r.slot or "empty") .. ")"
+    elseif r.over then
+      bits[#bits + 1] = string.format("%s upgrade over your %s", PctText(r.pct), r.over)
+    end
+  elseif r.state == "downgrade" then
+    bits[#bits + 1] = string.format("%s, worse than your %s", PctText(r.pct), r.over or "current item")
+  elseif r.state == "same" then
+    bits[#bits + 1] = r.over and ("about the same as your " .. r.over) or "no real gain"
+  elseif r.why then
+    bits[#bits + 1] = r.why
+  end
+  if r.ammo then
+    bits[#bits + 1] = r.ammo
+  end
+  if f.unscored then
+    bits[#bits + 1] = "has an effect Nock can't score"
+  end
+  local s = table.concat(bits, ", ")
+  if pre and r.state ~= "unusable" and r.state ~= "nogear" then
+    s = pre .. ": " .. s
+  end
+  return s
+end
+
+-- Compact tag for a button.
+function RW.Tag(r)
+  if r.state == "upgrade" then
+    return PctText(r.pct)
+  elseif r.state == "newslot" then
+    return "new slot"
+  elseif r.state == "downgrade" then
+    return "downgrade"
+  elseif r.state == "same" then
+    return "same"
+  elseif r.state == "later" then
+    return "lvl " .. tostring(r.level)
+  end
+  return "-"
+end
+
+-- Judge every choice, decide the pick. rows = list of { link=, count= } (nil link = not readable yet).
+-- Returns { rows = {judged}, pick = idx|nil, sell = idx|nil, pending = bool, note = text|nil }.
+function RW.Decide(rows)
+  local out = { rows = {}, pending = false, missing = {} }
+  for i, row in ipairs(rows) do
+    local f, why, id = RW.Facts(row.link)
+    local r
+    if f then
+      local pend
+      r, pend = RW.Judge(f)
+      if not r then
+        out.pending = true
+      else
+        r.count = row.count or 1
+        local mine = (function()
+          local w = Worn(18)
+          return w
+        end)()
+        if mine and f.equipLoc:find("INVTYPE_RANGED") and mine.subID ~= f.subID and f.classID == 2 then
+          r.ammo = (f.subID == 3) and "uses bullets" or "uses arrows"
+        end
+      end
+    else
+      out.pending = true
+      out.missing[#out.missing + 1] = i
+    end
+    out.rows[i] = r or false
+  end
+  if out.pending then
+    return out
+  end
+  local best
+  for i, r in ipairs(out.rows) do
+    if r and (r.state == "upgrade" or r.state == "newslot") then
+      if not best or r.delta > out.rows[best].delta then
+        best = i
+      end
+    end
+  end
+  if best then
+    out.pick = best
+    return out
+  end
+  -- Nothing is an upgrade now. A level-locked upgrade is not offered for sale: you will grow into it.
+  local later
+  for i, r in ipairs(out.rows) do
+    if r and r.state == "later" and (r.delta or 0) > 0.5 and (not later or r.delta > out.rows[later].delta) then
+      later = i
+    end
+  end
+  out.later = later
+  local function priciest(skipLater)
+    local sell, price = nil, 0
+    for i, r in ipairs(out.rows) do
+      local p = r and (r.sell * (r.count or 1)) or 0
+      if p > price and not (skipLater and r.state == "later" and (r.delta or 0) > 0.5) then
+        sell, price = i, p
+      end
+    end
+    return sell, price
+  end
+  out.sell, out.sellPrice = priciest(true)
+  if not out.sell then
+    out.sell, out.sellPrice = priciest(false)
+  end
+  return out
+end
+
+-- Reward buttons ---------------------------------------------------------------------------
+local function QuestLog()
+  return _G.QuestInfoFrame and _G.QuestInfoFrame.questLog and true or false
+end
+
+function RW.NumChoices()
+  local fn = QuestLog() and _G.GetNumQuestLogChoices or _G.GetNumQuestChoices
+  if not fn then
+    return 0
+  end
+  local ok, n = pcall(fn)
+  return ok and tonumber(n) or 0
+end
+
+local function ChoiceRow(i)
+  local linkFn = QuestLog() and _G.GetQuestLogItemLink or _G.GetQuestItemLink
+  local infoFn = QuestLog() and _G.GetQuestLogChoiceInfo or nil
+  local link
+  if linkFn then
+    local ok, l = pcall(linkFn, "choice", i)
+    link = ok and l or nil
+  end
+  local count = 1
+  if QuestLog() then
+    if infoFn then
+      local ok, _, _, n = pcall(infoFn, i)
+      count = ok and tonumber(n) or 1
+    end
+  elseif _G.GetQuestItemInfo then
+    local ok, _, _, n = pcall(_G.GetQuestItemInfo, "choice", i)
+    count = ok and tonumber(n) or 1
+  end
+  return { link = link, count = (count and count > 0) and count or 1 }
+end
+
+function RW.ButtonFor(i)
+  local b = _G["QuestInfoRewardsFrameQuestInfoItem" .. i]
+  if not b and _G.QuestInfoRewardsFrame and _G.QuestInfoRewardsFrame.RewardButtons then
+    b = _G.QuestInfoRewardsFrame.RewardButtons[i]
+  end
+  if b and b.type and b.type ~= "choice" then
+    return nil
+  end
+  return b
+end
+
+local GOLD = { 0.95, 0.80, 0.30 }
+
+local function Font(fs, size)
+  local T = _G.NockTheme
+  if T and T.EnsureFont then
+    return T.EnsureFont(fs, size, "OUTLINE")
+  end
+  pcall(fs.SetFont, fs, STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF", size, "OUTLINE")
+end
+
+local function Edges(frame, r, g, b, a, thick, out)
+  local e = {}
+  for i = 1, 4 do
+    e[i] = frame:CreateTexture(nil, "OVERLAY")
+    e[i]:SetColorTexture(r, g, b, a)
+  end
+  e[1]:SetPoint("TOPLEFT", frame, "TOPLEFT", -out, out)
+  e[1]:SetPoint("TOPRIGHT", frame, "TOPRIGHT", out, out)
+  e[1]:SetHeight(thick)
+  e[2]:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", -out, -out)
+  e[2]:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", out, -out)
+  e[2]:SetHeight(thick)
+  e[3]:SetPoint("TOPLEFT", frame, "TOPLEFT", -out, out)
+  e[3]:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", -out, -out)
+  e[3]:SetWidth(thick)
+  e[4]:SetPoint("TOPRIGHT", frame, "TOPRIGHT", out, out)
+  e[4]:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", out, -out)
+  e[4]:SetWidth(thick)
+  return e
+end
+
+local function Deco(btn)
+  local d = btn.nockReward
+  if d then
+    return d
+  end
+  d = {}
+  d.holder = CreateFrame("Frame", nil, btn)
+  d.holder:SetAllPoints(btn)
+  if d.holder.EnableMouse then
+    d.holder:EnableMouse(false)
+  end
+  if d.holder.SetFrameLevel and btn.GetFrameLevel then
+    d.holder:SetFrameLevel((btn:GetFrameLevel() or 1) + 3)
+  end
+  -- 2px gold border just outside the button, so the icon and its count stay clear
+  d.border = Edges(d.holder, GOLD[1], GOLD[2], GOLD[3], 1, 2, 2)
+  d.tag = d.holder:CreateFontString(nil, "OVERLAY")
+  Font(d.tag, 11)
+  d.tag:SetPoint("BOTTOMRIGHT", d.holder, "BOTTOMRIGHT", -4, 3)
+  d.tag:SetJustifyH("RIGHT")
+  btn.nockReward = d
+  return d
+end
+
+local function ShowBorder(d, on)
+  for _, t in ipairs(d.border) do
+    if on then t:Show() else t:Hide() end
+  end
+end
+
+local TAG_COLOR = { upgrade = { 0.55, 0.92, 0.55 }, newslot = { 0.55, 0.92, 0.55 }, same = { 0.78, 0.78, 0.74 },
+  downgrade = { 0.92, 0.50, 0.45 }, unusable = { 0.62, 0.62, 0.60 }, later = { 0.85, 0.75, 0.45 },
+  nocompare = { 0.62, 0.62, 0.60 }, nogear = { 0.62, 0.62, 0.60 } }
+
+function RW.Line()
+  if RW.line then
+    return RW.line
+  end
+  local host = _G.UIParent
+  local card = CreateFrame("Frame", nil, host)
+  card:SetHeight(26)
+  local bg = card:CreateTexture(nil, "BACKGROUND")
+  bg:SetAllPoints(card)
+  bg:SetColorTexture(0.04, 0.05, 0.06, 0.88)
+  Edges(card, 0.82, 0.70, 0.35, 0.55, 1, 0)
+  local fs = card:CreateFontString(nil, "OVERLAY")
+  Font(fs, 12)
+  fs:SetPoint("TOPLEFT", card, "TOPLEFT", 8, -6)
+  fs:SetPoint("TOPRIGHT", card, "TOPRIGHT", -8, -6)
+  fs:SetJustifyH("LEFT")
+  fs:SetTextColor(0.92, 0.97, 0.94)
+  card.text = fs
+  RW.line = card
+  return card
+end
+
+local function HostFrame()
+  for _, n in ipairs({ "QuestFrame", "QuestLogFrame", "QuestMapFrame" }) do
+    local f = _G[n]
+    if f and f.IsShown and f:IsShown() then
+      return f
+    end
+  end
+  return nil
+end
+
+function RW.Hide()
+  for i = 1, 8 do
+    local b = RW.ButtonFor(i)
+    if b and b.nockReward then
+      ShowBorder(b.nockReward, false)
+      b.nockReward.tag:SetText("")
+    end
+  end
+  if RW.line then
+    RW.line:Hide()
+  end
+  RW.result = nil
+end
+
+local function LineText(res, n)
+  local pre = n > 1 and "Nock pick: " or "Nock: "
+  if res.pick then
+    local r = res.rows[res.pick]
+    local why = RW.Reason(r)
+    return pre .. r.name .. (why ~= "" and (" - " .. why) or "") .. "."
+  elseif res.sell then
+    local r = res.rows[res.sell]
+    local s = string.format("No upgrade, best to sell (%s): %s.", RW.Coin(res.sellPrice), r.name)
+    if res.later then
+      local l = res.rows[res.later]
+      s = s .. string.format(" %s becomes an upgrade at level %s.", l.name, tostring(l.level))
+    end
+    return "Nock: " .. s
+  end
+  return "Nock: no upgrade here, and nothing sells for anything."
+end
+
+-- Draw: the result is kept in RW.result so tooltips can use it.
+function RW.Apply(res, n)
+  RW.result = res
+  for i = 1, n do
+    local b = RW.ButtonFor(i)
+    local r = res.rows[i]
+    if b and r then
+      local d = Deco(b)
+      local isPick = (res.pick == i) or (res.sell == i)
+      ShowBorder(d, isPick and n > 1)
+      local tag = RW.Tag(r)
+      local col = TAG_COLOR[r.state] or TAG_COLOR.same
+      if res.sell == i then
+        tag = "sell " .. RW.Coin(res.sellPrice)
+        col = GOLD
+      end
+      if isPick and n > 1 then
+        d.tag:SetText("Nock pick \194\183 " .. tag)
+        d.tag:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
+      else
+        d.tag:SetText(tag)
+        d.tag:SetTextColor(col[1], col[2], col[3])
+      end
+      d.tag:Show()
+      if not d.hooked and b.HookScript then
+        d.hooked = true
+        pcall(b.HookScript, b, "OnEnter", function(self)
+          RW.Tooltip(self)
+        end)
+      end
+    end
+  end
+  local host = HostFrame()
+  local card = RW.Line()
+  if host then
+    card:SetParent(host)
+    card:ClearAllPoints()
+    card:SetPoint("TOPLEFT", host, "BOTTOMLEFT", 0, -2)
+    card:SetPoint("TOPRIGHT", host, "BOTTOMRIGHT", 0, -2)
+    card.text:SetText(LineText(res, n))
+    local h = card.text.GetStringHeight and card.text:GetStringHeight() or 14
+    card:SetHeight(math.max(26, h + 12))
+    card:Show()
+  else
+    card:Hide()
+  end
+end
+
+function RW.Tooltip(btn)
+  local res = RW.result
+  if not res or not RW.Enabled() then
+    return
+  end
+  local i = (btn.GetID and btn:GetID()) or 0
+  if not i or i < 1 then
+    return
+  end
+  local r = res.rows[i]
+  if not r then
+    return
+  end
+  local tip = _G.GameTooltip
+  if not (tip and tip.AddLine) then
+    return
+  end
+  local n = RW.NumChoices()
+  local head
+  if res.pick == i and n > 1 then
+    head = "Nock pick for a hunter"
+  elseif res.sell == i and n > 1 then
+    head = "Nock pick: best to sell"
+  else
+    head = "Nock"
+  end
+  local text
+  if res.sell == i then
+    text = string.format("No upgrade, best to sell (%s)", RW.Coin(res.sellPrice))
+  else
+    text = RW.Reason(r)
+    if r.state == "upgrade" or r.state == "newslot" then
+      text = text .. "."
+    end
+  end
+  pcall(function()
+    tip:AddLine(" ")
+    tip:AddLine(head, GOLD[1], GOLD[2], GOLD[3])
+    tip:AddLine(text, 0.92, 0.97, 0.94, true)
+    if tip.Show then
+      tip:Show()
+    end
+  end)
+end
+
+-- Read the reward screen, judge, draw. Safe to call any time.
+function RW.Refresh()
+  RW.refreshing = false
+  if not RW.Enabled() then
+    RW.Hide()
+    return
+  end
+  local n = RW.NumChoices()
+  if n < 1 then
+    RW.Hide()
+    return
+  end
+  local rows = {}
+  for i = 1, n do
+    rows[i] = ChoiceRow(i)
+  end
+  local res = RW.Decide(rows)
+  if res.pending then
+    RW.result = nil
+    RW.tries = RW.tries + 1
+    local wait = ({ 0.3, 0.6, 1.2, 2.5, 4, 6 })[RW.tries]
+    if wait and C_Timer and C_Timer.After then
+      C_Timer.After(wait, function()
+        RW.Refresh()
+      end)
+    elseif not wait then
+      -- gave up on unreadable items: judge the rest, say so
+      local ok = {}
+      for i, row in ipairs(rows) do
+        if RW.Facts(row.link) then
+          ok[#ok + 1] = row
+        end
+      end
+      if #ok > 0 and #ok < #rows then
+        res = RW.Decide(ok)
+        if not res.pending then
+          local skipped = {}
+          local j = 0
+          local mapped = { rows = {}, pick = nil, sell = nil, later = res.later, sellPrice = res.sellPrice }
+          for i, row in ipairs(rows) do
+            if RW.Facts(row.link) then
+              j = j + 1
+              mapped.rows[i] = res.rows[j]
+              if res.pick == j then mapped.pick = i end
+              if res.sell == j then mapped.sell = i end
+              if res.later == j then mapped.later = i end
+            else
+              mapped.rows[i] = false
+            end
+          end
+          RW.Apply(mapped, n)
+        end
+      end
+    end
+    return
+  end
+  RW.tries = 0
+  RW.Apply(res, n)
+end
+
+function RW.Queue(delay)
+  if RW.refreshing or not (C_Timer and C_Timer.After) then
+    return
+  end
+  RW.refreshing = true
+  C_Timer.After(delay or 0.1, function()
+    RW.Refresh()
+  end)
+end
+
+function RW.Wire()
+  if RW.wired then
+    return
+  end
+  RW.wired = true
+  if _G.hooksecurefunc and _G.QuestInfo_Display then
+    pcall(_G.hooksecurefunc, "QuestInfo_Display", function()
+      RW.tries = 0
+      RW.Queue(0.05)
+    end)
+  end
+  local rf = _G.QuestInfoRewardsFrame
+  if rf and rf.HookScript then
+    pcall(rf.HookScript, rf, "OnShow", function()
+      RW.Queue(0.05)
+    end)
+  end
+end
+
+local rwev = CreateFrame and CreateFrame("Frame")
+if rwev then
+  for _, e in ipairs({ "PLAYER_LOGIN", "QUEST_COMPLETE", "QUEST_DETAIL", "QUEST_ITEM_UPDATE", "QUEST_FINISHED",
+    "GET_ITEM_INFO_RECEIVED", "PLAYER_EQUIPMENT_CHANGED" }) do
+    pcall(rwev.RegisterEvent, rwev, e)
+  end
+  rwev:SetScript("OnEvent", function(_, event, arg1)
+    if event == "PLAYER_LOGIN" then
+      RW.Wire()
+    elseif event == "QUEST_FINISHED" then
+      RW.Hide()
+    elseif event == "GET_ITEM_INFO_RECEIVED" then
+      if RW.pending[arg1] then
+        RW.pending[arg1] = nil
+        RW.Queue(0.05)
+      end
+    elseif event == "QUEST_COMPLETE" or event == "QUEST_DETAIL" then
+      RW.tries = 0
+      RW.Queue(0.1)
+    else
+      RW.Queue(0.2)
+    end
+  end)
+end
+
+-- /nock rewards [on | off]
+local rwBase = SlashCmdList and SlashCmdList.NOCK
+if rwBase then
+  SlashCmdList.NOCK = function(msg)
+    local m = string.lower(strtrim and strtrim(msg or "") or (msg or ""))
+    local cmd, rest = m:match("^(%S+)%s*(.*)$")
+    if cmd == "rewards" then
+      if rest == "on" or rest == "off" then
+        RW.SetEnabled(rest == "on")
+      end
+      Core.Say("Quest reward picks: " .. (RW.Enabled() and "on" or "off")
+        .. ". Marks the best reward for a hunter when you turn a quest in. It never picks for you.")
+      return
+    end
+    rwBase(msg)
+    if m == "help" then
+      Core.Say("/nock rewards on | off — mark the best quest reward for a hunter")
+    end
+  end
+end

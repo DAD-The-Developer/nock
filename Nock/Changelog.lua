@@ -23,6 +23,21 @@ local IC = "Interface\\Icons\\"
 -- Each bullet is { text, icon } (icon optional).
 Nock.Changelog = {
   {
+    version = "3.11.0", date = "2026-11-27",
+    summary = "Quest turn-ins show the best reward for a hunter, and how big an upgrade each one is.",
+    new = {
+      { "Best reward for a hunter. When you turn a quest in, the best choice gets a gold border and a small Nock pick tag. A short reason is in its tooltip and under the quest window, for example: +5 Agility, +14% upgrade over your Hunting Bow.", IC .. "INV_Misc_Bag_10" },
+      { "Every choice shows how much of an upgrade it is over what you wear in that slot: +12%, same, downgrade, new slot (nothing worn there yet), or - when a hunter can't use it. The same shows in the quest preview and the quest log.", IC .. "INV_Misc_Note_01" },
+      { "No upgrade in the list? Nock marks the reward that sells for the most: No upgrade, best to sell (1g 20s).", IC .. "INV_Misc_Coin_01" },
+      { "/nock rewards on | off, or Options > Best quest reward for a hunter. Nock only marks; it never picks a reward or turns the quest in for you.", IC .. "INV_Misc_Note_02" },
+    },
+    improved = {
+      { "Scores like a hunter: Agility first, then attack power, crit and hit, then Stamina, Intellect, Spirit and Strength. Bows, guns and crossbows count their DPS heavily. Rings and trinkets replace the weaker of your two, and a two-hander is weighed against both hands." },
+      { "Plate, shields, maces, wands, other classes' gear, mail before level 40 and anything above your level are never picked. Items the game hasn't loaded yet are requested and checked again by themselves." },
+    },
+    fixed = {},
+  },
+  {
     version = "3.10.2", date = "2026-11-27",
     summary = "New spells, new ranks, pet skills and new pets are placed and announced by themselves.",
     new = {
