@@ -745,13 +745,54 @@ local function BuildPage(page)
 
   local rebuild = L.BarButton(page, "Rebuild", 80, {
     lock = true,
-    tip = "Reads your level, spells, keys and bars again. Nock also does this by itself after level-ups, new spells and key changes.",
+    tip = "Reads your spellbook, level, keys and bars again, puts any newly trained spell on its planned empty key, and tells you in chat what is on a tile, on a key only, or still waiting at the trainer. Never replaces a key you set yourself. Same as /nock check. Nock also does this by itself after level-ups, new spells and key changes.",
     onClick = function()
-      MR.Invalidate()
+      MR.Rebuild()
     end,
   })
   rebuild:SetPoint("RIGHT", bindAll, "LEFT", -8, 0)
   return page
+end
+
+-- 3.10.1: Rebuild really rebuilds. Rescan the spellbook, let keep-up bind and
+-- place anything newly trained on its planned EMPTY key (keys you set stay
+-- yours), repaint the bar and this page, then say what happened in chat.
+function MR.Rebuild(quiet)
+  if L.InCombat() then
+    MR.pending = true
+    L.Print("In combat. Nock rebuilds the moment the fight ends.")
+    return
+  end
+  if Nock.SpellbookIndex then
+    pcall(Nock.SpellbookIndex, true)
+  end
+  if Nock.Core and Nock.Core.ScanSpells then
+    pcall(Nock.Core.ScanSpells)
+  end
+  local S = Nock.Setup
+  local filled = 0
+  local active = true
+  if S and S.KeepUp then
+    active = not S.KeepUpActive or S.KeepUpActive()
+    local ok, n = pcall(S.KeepUp)
+    filled = ok and tonumber(n) or 0
+  end
+  MR.Invalidate()
+  if Nock.UpdateOverlay then
+    pcall(Nock.UpdateOverlay)
+  end
+  if quiet then
+    return
+  end
+  if not active then
+    L.Print("Nock is not filling keys right now (Use my own keybinds, or auto keep-up is off). The report below only reads.")
+  end
+  if Nock.PrintCheck then
+    local ok, err = pcall(Nock.PrintCheck, nil, filled > 0 and ("Rebuilt, " .. filled .. " key" .. (filled == 1 and "" or "s") .. " filled.") or "Rebuilt.")
+    if not ok then
+      L.Print("Check failed: " .. tostring(err))
+    end
+  end
 end
 
 function MR.BindMissing(d)
@@ -1273,6 +1314,28 @@ SlashCmdList.NOCK = function(msg)
   local m = string.lower(strtrim(msg or ""))
   if m == "myrotation" or m == "myrot" or m == "mine" or m == "my" then
     return Nock.ShowPanel("myrot")
+  elseif m == "check" or m == "rebuild" then
+    return MR.Rebuild()
+  elseif m:sub(1, 6) == "check " then
+    local name = strtrim(strtrim(msg or ""):sub(7))
+    local want = name:lower()
+    -- Accept any capitalisation: match against the trainer list and the spellbook.
+    local found
+    for _, row in ipairs((Nock.Data and Nock.Data.TrainerSpells) or {}) do
+      if row[2]:lower() == want then
+        found = row[2]
+        break
+      end
+    end
+    if not found and Nock.SpellbookIndex then
+      for n in pairs(Nock.SpellbookIndex(true)) do
+        if n:lower() == want then
+          found = n
+          break
+        end
+      end
+    end
+    return Nock.CheckSpell(found or name)
   elseif m == "card" then
     MR.SetCardShown(not MR.IsCardShown())
     UI.Refresh()

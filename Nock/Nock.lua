@@ -75,7 +75,7 @@
 ]]
 
 local ADDON_NAME = ...
-local VERSION = "3.10.0"
+local VERSION = "3.10.1"
 -- Keys, bars and macros last changed in 1.9.0; 2.0 is a new look only, so a
 -- character set up on 1.9.0 is not asked to set up again. 2.0.1's racial keys
 -- (Alt-1, Alt-E) are added by auto keep-up, only on keys that are free.
@@ -167,8 +167,146 @@ local function SpellData(name)
   return name, nil, nil
 end
 
+-- 3.10.1: the spellbook itself is the source of truth for "do I know this?".
+-- Looking a spell up by name and then asking IsPlayerSpell(id) can pick a
+-- different rank (or a same-named spell) on Forever and say "not known" for a
+-- spell that is plainly in the book. RX.SBIndex reads the book once (all tabs,
+-- every rank, future spells and other-spec spells left out) and keeps the
+-- highest rank of each name with its spell id and book slot. It is rebuilt
+-- when the book changes (SPELLS_CHANGED, LEARNED_SPELL_IN_TAB/SKILL_LINE, level
+-- up, talents) and at most every 3 seconds otherwise. Read only; never used in
+-- a way that touches the fight.
+RX.sb = { map = nil, at = -100, via = "none", count = 0, dirty = true }
+function RX.SBInvalidate()
+  RX.sb.dirty = true
+end
+function RX.sbText(v)
+  if type(v) ~= "string" or v == "" then
+    return nil
+  end
+  if issecretvalue then
+    local ok, secret = pcall(issecretvalue, v)
+    if ok and secret then
+      return nil
+    end
+  end
+  return v
+end
+function RX.sbRank(sub, spellID)
+  sub = RX.sbText(sub)
+  if not sub and spellID and C_Spell and C_Spell.GetSpellSubtext then
+    local ok, t = pcall(C_Spell.GetSpellSubtext, spellID)
+    if ok then
+      sub = RX.sbText(t)
+    end
+  end
+  local n = sub and sub:lower():find("rank", 1, true) and tonumber(sub:match("(%d+)"))
+  return n or 1
+end
+function RX.SBIndex(force)
+  local sb = RX.sb
+  local now = (GetTime and GetTime()) or 0
+  if sb.map and not force and not sb.dirty and (now - sb.at) < 3 then
+    return sb.map
+  end
+  local map, count, via = {}, 0, "none"
+  local function add(name, sub, spellID, index, bank)
+    name = RX.sbText(name)
+    if not name then
+      return
+    end
+    name = name:gsub("%s*%(.*%)$", "")
+    local rank = RX.sbRank(sub, spellID)
+    local cur = map[name]
+    count = count + 1
+    if not cur or rank >= cur.rank then
+      map[name] = { id = tonumber(spellID) or nil, rank = rank, index = index, bank = bank }
+    end
+  end
+  local SB = C_SpellBook
+  if SB and SB.GetNumSpellBookSkillLines and SB.GetSpellBookSkillLineInfo and SB.GetSpellBookItemInfo then
+    local okN, lines = pcall(SB.GetNumSpellBookSkillLines)
+    if okN and type(lines) == "number" then
+      local bank = (Enum and Enum.SpellBookSpellBank and Enum.SpellBookSpellBank.Player) or 0
+      local IT = Enum and Enum.SpellBookItemType
+      for line = 1, lines do
+        local okL, info = pcall(SB.GetSpellBookSkillLineInfo, line)
+        if okL and type(info) == "table" and not (info.offSpecID and info.offSpecID ~= 0) then
+          local off, num = info.itemIndexOffset or 0, info.numSpellBookItems or 0
+          for slot = off + 1, off + num do
+            local okI, it = pcall(SB.GetSpellBookItemInfo, slot, bank)
+            if okI and type(it) == "table" and not it.isOffSpec
+                and not (IT and (it.itemType == IT.FutureSpell or it.itemType == IT.Flyout)) then
+              add(it.name, it.subName, it.spellID or it.actionID, slot, bank)
+            end
+          end
+        end
+      end
+      via = "C_SpellBook"
+    end
+  end
+  if count == 0 and GetNumSpellTabs and GetSpellTabInfo and GetSpellBookItemName then
+    local okT, tabs = pcall(GetNumSpellTabs)
+    if okT and type(tabs) == "number" then
+      for tab = 1, tabs do
+        local okI, _, _, off, num = pcall(GetSpellTabInfo, tab)
+        if okI then
+          for slot = (off or 0) + 1, (off or 0) + (num or 0) do
+            local kind, id
+            if GetSpellBookItemInfo then
+              local okK, k, i = pcall(GetSpellBookItemInfo, slot, "spell")
+              if okK then
+                kind, id = k, i
+              end
+            end
+            if kind == nil or kind == "SPELL" then
+              local okN2, n1, n2 = pcall(GetSpellBookItemName, slot, "spell")
+              if okN2 then
+                add(n1, n2, id, slot, "spell")
+              end
+            end
+          end
+        end
+      end
+      via = "spell tabs"
+    end
+  end
+  sb.map, sb.at, sb.via, sb.count, sb.dirty = map, now, via, count, false
+  return map
+end
+function RX.SBFind(name)
+  if type(name) ~= "string" then
+    return nil
+  end
+  local ok, map = pcall(RX.SBIndex)
+  return ok and map and map[name] or nil
+end
+-- The book changes the moment a spell is learned: drop the cache first, before
+-- any other Nock module reacts to the same event.
+do
+  local f = CreateFrame and CreateFrame("Frame")
+  if f and f.RegisterEvent then
+    for _, e in ipairs({ "SPELLS_CHANGED", "LEARNED_SPELL_IN_TAB", "LEARNED_SPELL_IN_SKILL_LINE", "PLAYER_LEVEL_UP",
+      "PLAYER_TALENT_UPDATE", "TRAIT_CONFIG_UPDATED", "PLAYER_ENTERING_WORLD" }) do
+      pcall(f.RegisterEvent, f, e)
+    end
+    f:SetScript("OnEvent", RX.SBInvalidate)
+  end
+end
+
 local function PlayerKnows(name)
   local spellName, icon, spellID = SpellData(name)
+  -- 3.10.1: the spellbook entry (highest rank) wins; the id lookup is only a fallback.
+  local sb = RX.SBFind(name)
+  if sb then
+    local id = sb.id or spellID
+    if (not icon or not spellID) and id then
+      local n2, ic2 = SpellData(id)
+      spellName = spellName or n2
+      icon = icon or ic2
+    end
+    return true, id, spellName or name, icon
+  end
   if not spellID then
     return false, nil, spellName or name, icon
   end
@@ -554,17 +692,36 @@ local function PickupEntry(entry)
     return true
   end
   local known, spellID = PlayerKnows(entry.name)
-  if not known or not spellID then
+  if not known then
     return false
   end
-  if C_Spell and C_Spell.PickupSpell then
-    C_Spell.PickupSpell(spellID)
-  elseif PickupSpell then
-    PickupSpell(spellID)
-  else
-    return false
+  -- 3.10.1: the id is the highest rank in the book. If the cursor stays empty
+  -- (Forever refused the id), pick the spell up from its spellbook slot.
+  local function onCursor()
+    return (not GetCursorInfo) or GetCursorInfo() ~= nil
   end
-  return true
+  if spellID then
+    if C_Spell and C_Spell.PickupSpell then
+      pcall(C_Spell.PickupSpell, spellID)
+    elseif PickupSpell then
+      pcall(PickupSpell, spellID)
+    end
+    if onCursor() then
+      return true
+    end
+  end
+  local sb = RX.SBFind(entry.name)
+  if sb and sb.index then
+    if C_SpellBook and C_SpellBook.PickupSpellBookItem then
+      pcall(C_SpellBook.PickupSpellBookItem, sb.index, sb.bank or 0)
+    elseif PickupSpellBookItem then
+      pcall(PickupSpellBookItem, sb.index, "spell")
+    end
+    if onCursor() then
+      return true
+    end
+  end
+  return false
 end
 
 local function ClearCursorSafe()
@@ -1204,8 +1361,19 @@ local DIVIDER_BEFORE = "Q" -- small arrow divider: the "it's on me" keys follow
 -- bow bar shows the Shift-Z tile in Mouse 4's place, so Wing Clip always has a
 -- full-size tile right after Q. Before, it had no tile at all.
 Nock.BAR_KEYS_MOUSE_SZ = { "R", "1", "2", "3", "4", "5", "Q", "SHIFT-Z", "BUTTON3" }
+-- 3.10.1: the same for Feign Death. Mouse on, but the wheel click is yours (so
+-- Nock never put Feign Death there): the bar shows the E tile in its place, so
+-- Feign Death always has a full-size tile. Before, it had none at all.
+Nock.BAR_KEYS_MOUSE_FE = { "R", "1", "2", "3", "4", "5", "Q", "BUTTON4", "E" }
+Nock.BAR_KEYS_MOUSE_SZ_FE = { "R", "1", "2", "3", "4", "5", "Q", "SHIFT-Z", "E" }
 local function MainBarKeys()
   if MouseOn() then
+    if Nock.feignOnE then
+      if Nock.wingShiftZ then
+        return Nock.BAR_KEYS_MOUSE_SZ_FE
+      end
+      return Nock.BAR_KEYS_MOUSE_FE
+    end
     if Nock.wingShiftZ then
       return Nock.BAR_KEYS_MOUSE_SZ
     end
@@ -4356,15 +4524,21 @@ function Book.EachSpellbookSpell(fn)
           for j = 1, count do
             local slot = off + j
             local name, spellID, isPassive
+            local skipItem = false
             if C_SpellBook.GetSpellBookItemInfo then
               local okS, item = pcall(C_SpellBook.GetSpellBookItemInfo, slot, bank)
               if okS and type(item) == "table" then
                 name = item.name
                 spellID = item.spellID
                 isPassive = item.isPassive
+                -- 3.10.1: spells you have not learned yet are not "known".
+                local IT = Enum and Enum.SpellBookItemType
+                if item.isOffSpec or (IT and (item.itemType == IT.FutureSpell or item.itemType == IT.Flyout)) then
+                  name, skipItem = nil, true
+                end
               end
             end
-            if (not name) and C_SpellBook.GetSpellBookItemName then
+            if (not name) and C_SpellBook.GetSpellBookItemName and not skipItem then
               local ok2, n2 = pcall(C_SpellBook.GetSpellBookItemName, slot, bank)
               if ok2 then
                 name = n2
@@ -5658,6 +5832,51 @@ end
 
 
 Nock.Book = Book
+Nock.SpellbookIndex = RX.SBIndex
+Nock.SpellbookFind = RX.SBFind
+function Nock.SpellbookState()
+  return RX.sb
+end
+
+-- 3.10.1: is there a visible tile for this spell right now? Returns the key on
+-- the tile and "bar" (main bow bar), "row" (extra rows) or "util"; nil if none.
+-- Used by /nock check and the Rebuild report. Read only.
+function Nock.TileFor(name)
+  if not (overlay and name) then
+    return nil
+  end
+  local function casts(cap)
+    local e = cap and cap.entry
+    if not e then
+      return false
+    end
+    local n = e.name
+    if e.kind == "macro" then
+      n = e.requires or MacroSpell(e) or n
+    end
+    return n == name
+  end
+  for key, cap in pairs(overlay.caps or {}) do
+    if cap:IsShown() and casts(cap) then
+      return key, "bar"
+    end
+  end
+  for key, cap in pairs(overlay.utilCaps or {}) do
+    if cap:IsShown() and casts(cap) then
+      return key, "util"
+    end
+  end
+  local wrap = overlay.extra
+  for _, cap in ipairs(wrap and wrap.caps or {}) do
+    if cap:IsShown() and cap.rec and (cap.rec.id == name or cap.spellName == name) then
+      return cap.rec.key or cap.key, "row"
+    end
+    if cap:IsShown() and cap.rec and (cap.rec.id == "pet-call") and (name == "Call Pet" or name == "Revive Pet") then
+      return cap.rec.key or cap.key, "row"
+    end
+  end
+  return nil
+end
 
 local function LayoutBar(keys)
   local x = PAD_X
@@ -5774,6 +5993,7 @@ local function UpdateOverlay()
   -- Synthetic item tiles (not in the keymap layout).
   layout = layout or {}
   Nock.wingShiftZ = MouseOn() and not layout.BUTTON4 and layout["SHIFT-Z"] ~= nil and true or false
+  Nock.feignOnE = MouseOn() and not layout.BUTTON3 and layout["E"] ~= nil and true or false
   if HasItem("Hearthstone") then
     layout.HEARTH = ItemEntry("Hearthstone")
   end

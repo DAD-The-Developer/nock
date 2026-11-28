@@ -348,6 +348,16 @@ Intensity (Low, Medium, High). Both are on by default.
 Works on Blizzard's bars, and on Bartender4, Dominos and ElvUI bars when
 Nock can find their buttons.
 
+Rebuild and /nock check (new in 3.10.1)
+---------------------------------------
+Trained something and don't see it? Click Rebuild on the My Rotation page,
+or type /nock check. Nock rescans your spellbook (every rank, highest one
+used), fills newly trained spells onto their planned EMPTY keys (a key you
+set yourself is never replaced), repaints the bar and prints in chat:
+how many spells it read, what is on a tile, what is on a key but has no tile,
+what is on nothing, and which spells your trainer still has for you.
+/nock check feign death (any spell name) shows how Nock sees one spell.
+
 My Rotation — your own dummy guide (new in version 1.6)
 -------------------------------------------------------
 Type /nock myrotation (or click the My Rotation tab). It reads three

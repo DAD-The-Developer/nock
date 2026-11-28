@@ -113,7 +113,7 @@ local function read(path)
 end
 local toc = read("/workspace/nock/Nock/Nock.toc")
 assert_true(toc:find("Styles.lua", 1, true), "TOC loads Styles.lua")
-assert_true(toc:find("Version: 3.10.0", 1, true), "TOC is 3.10.0")
+assert_true(toc:find("Version: 3.10.1", 1, true), "TOC is 3.10.1")
 local bind = read("/workspace/nock/Nock/Bindings.xml")
 assert_true(bind:find("NOCK_STYLE", 1, true), "style toggle is in Bindings")
 assert_true(bind:find("NOCK_THREAT_UNLOCK", 1, true), "threat unlock is in Bindings")

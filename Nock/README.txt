@@ -22,6 +22,15 @@ If the game says it is out of date, enable "Load out of date AddOns"
 once, then tell me the interface number from /dump select(4, GetBuildInfo()).
 
 
+New in 3.10.1
+Rebuild really rebuilds. Click Rebuild on My Rotation (or type /nock check)
+and Nock rescans your spellbook (highest rank of everything), fills newly
+trained spells onto their planned empty keys, repaints the bar and prints a
+short report: what is on a tile, on a key only, on nothing, and what your
+trainer still has for you. /nock check feign death (any spell) shows how
+Nock sees that one spell. Fixed: Feign Death had no tile when the mouse wheel
+click was already yours; it now shows on E.
+
 New in 3.10.0
 Flight paths. Every flight point for your faction (and neutral ones) on
 the zone maps and minimap, and the routes between them on the continent

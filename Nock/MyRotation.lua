@@ -798,6 +798,159 @@ function Nock.BindAction(r)
   return ok
 end
 
+-- Check (3.10.1) ---------------------------------------------------------------------
+-- "Is Nock really picking up what I trained and putting it somewhere?" Reads the
+-- spellbook (never the fight) and answers for every hunter ability in the trainer
+-- list: known or not, a visible tile or only a key, nothing at all, or still
+-- waiting at the trainer. Used by Rebuild and /nock check.
+local CHECK_SKIP = { ["Auto Shot"] = true, ["Beast Training"] = true, ["Raptor Strike"] = false }
+
+local function Rankless(name)
+  return name:gsub("%s*%(.*%)$", "")
+end
+
+function Nock.CheckAbilities()
+  local level = (Nock.PlayerLevel and Nock.PlayerLevel()) or 1
+  local p = (Nock.ActiveProfile and Nock.ActiveProfile()) or (Nock.Profiles and Nock.Profiles.bmlvl)
+  local layout = p and LayoutForProfile(p) or {}
+  local bars = ScanBars()
+  local index = (Nock.SpellbookIndex and Nock.SpellbookIndex(true)) or {}
+  local rep = {
+    level = level, spells = 0, via = (Nock.SpellbookState and Nock.SpellbookState().via) or "?",
+    onBar = {}, keyOnly = {}, noKey = {}, train = {}, higher = {}, soon = 0,
+  }
+  for _ in pairs(index) do
+    rep.spells = rep.spells + 1
+  end
+  local ranked = false
+  for _, v in pairs(index) do
+    if (v.rank or 1) > 1 then
+      ranked = true
+      break
+    end
+  end
+  -- Highest rank of each name the trainer offers at this level (talent spells only count once known).
+  local best, order = {}, {}
+  for _, row in ipairs((Nock.Data and Nock.Data.TrainerSpells) or {}) do
+    local lvl, name, rank, talent = row[1], row[2], row[3] or 0, row[4]
+    local b = best[name]
+    if not b then
+      b = { name = name, talent = talent, firstLevel = lvl, soonLevel = lvl }
+      best[name] = b
+      order[#order + 1] = name
+    end
+    if lvl < b.firstLevel then
+      b.firstLevel = lvl
+    end
+    if lvl <= level and rank >= (b.rank or -1) then
+      b.rank, b.rankLevel = rank, lvl
+    end
+  end
+  for _, name in ipairs(order) do
+    local b = best[name]
+    if not CHECK_SKIP[name] then
+      local sb = index[name] or (Nock.PlayerKnows and Nock.PlayerKnows(name) and { rank = 1 }) or nil
+      if sb then
+        local tileKey = Nock.TileFor and (Nock.TileFor(name))
+        local r = Resolve(name, layout, bars)
+        local key = r.key
+        if not key and Nock.Book and Nock.Book.KeyForSpell then
+          key = Nock.Book.KeyForSpell(name)
+          if not key and (name == "Call Pet" or name == "Revive Pet") then
+            key = Nock.Book.KeyForSpell("pet-call")
+          end
+        end
+        if tileKey then
+          rep.onBar[#rep.onBar + 1] = { name = name, key = tileKey }
+        elseif key then
+          rep.keyOnly[#rep.keyOnly + 1] = { name = name, key = key }
+        else
+          rep.noKey[#rep.noKey + 1] = { name = name, planned = r.layoutKey }
+        end
+        if ranked and b.rank and b.rank > 0 and (sb.rank or 1) < b.rank then
+          rep.higher[#rep.higher + 1] = { name = name, have = sb.rank or 1, want = b.rank, level = b.rankLevel }
+        end
+      elseif b.rank ~= nil and not b.talent then
+        rep.train[#rep.train + 1] = { name = name, level = b.firstLevel, rank = b.rank }
+      elseif b.firstLevel > level then
+        rep.soon = rep.soon + 1
+      end
+    end
+  end
+  return rep
+end
+
+local function KeyName(k)
+  return (Nock.KeyLabel and Nock.KeyLabel(k)) or tostring(k)
+end
+
+local function JoinList(list, fmt, max)
+  local out = {}
+  for i, v in ipairs(list) do
+    if i > max then
+      out[#out + 1] = string.format("+%d more", #list - max)
+      break
+    end
+    out[#out + 1] = fmt(v)
+  end
+  return table.concat(out, ", ")
+end
+
+function Nock.PrintCheck(rep, heading)
+  rep = rep or Nock.CheckAbilities()
+  Print(string.format("%sLevel %d. Read %d spells from your spellbook (%s). %d on a tile, %d on a key only, %d with nothing.",
+    heading and (heading .. " ") or "", rep.level, rep.spells, rep.via, #rep.onBar, #rep.keyOnly, #rep.noKey))
+  if #rep.keyOnly > 0 then
+    Print("On a key but no tile: " .. JoinList(rep.keyOnly, function(v) return v.name .. " (" .. KeyName(v.key) .. ")" end, 12) .. ".")
+  end
+  if #rep.noKey > 0 then
+    Print("Known but not on any key or bar: " .. JoinList(rep.noKey, function(v)
+      return v.name .. (v.planned and (" (planned " .. KeyName(v.planned) .. ")") or "")
+    end, 12) .. ". Bind Missing on the My Rotation page fixes the ones with a plan.")
+  end
+  if #rep.train > 0 then
+    Print("Not in your spellbook yet, your trainer teaches them: " .. JoinList(rep.train, function(v)
+      return v.name .. " (level " .. v.level .. ")"
+    end, 14) .. ".")
+  end
+  if #rep.higher > 0 then
+    Print("A higher rank is waiting at the trainer: " .. JoinList(rep.higher, function(v)
+      return v.name .. " " .. v.have .. " to " .. v.want
+    end, 10) .. ".")
+  end
+  if #rep.keyOnly == 0 and #rep.noKey == 0 and #rep.train == 0 and #rep.higher == 0 then
+    Print("Everything you know has a tile and nothing is waiting at the trainer.")
+  end
+end
+
+-- /nock check <spell>: every way Nock can tell whether you know one spell.
+function Nock.CheckSpell(name)
+  local function yn(v)
+    return v and "yes" or "no"
+  end
+  local spellName, icon, id = Nock.SpellData and Nock.SpellData(name)
+  Print(string.format("%s: name lookup -> id %s.", name, tostring(id)))
+  if id then
+    local a = IsPlayerSpell and IsPlayerSpell(id)
+    local b = IsSpellKnown and IsSpellKnown(id)
+    local c = C_SpellBook and C_SpellBook.IsSpellInSpellBook and C_SpellBook.IsSpellInSpellBook(id)
+    Print(string.format("IsPlayerSpell %s, IsSpellKnown %s, IsSpellInSpellBook %s.", yn(a), yn(b), yn(c)))
+  end
+  local sb = Nock.SpellbookFind and Nock.SpellbookFind(name)
+  if sb then
+    Print(string.format("Spellbook: yes, rank %s, id %s, book slot %s.", tostring(sb.rank), tostring(sb.id), tostring(sb.index)))
+  else
+    Print("Spellbook: not listed (not learned yet).")
+  end
+  local known = Nock.PlayerKnows and Nock.PlayerKnows(name)
+  Print("Nock counts it as known: " .. yn(known) .. ".")
+  local tile, kind
+  if Nock.TileFor then
+    tile, kind = Nock.TileFor(name)
+  end
+  Print("Tile on the bar: " .. (tile and (KeyName(tile) .. " (" .. kind .. ")") or "none") .. ".")
+end
+
 -- Level-up summary -----------------------------------------------------------------
 
 function Nock.LevelNews(level, p)
