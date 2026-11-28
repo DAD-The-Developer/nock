@@ -461,6 +461,17 @@ end
   GET_ITEM_INFO_RECEIVED and a short timer; no pick is drawn until every
   choice can be read (or the retries run out).
 
+  3.12.0: the weights follow your spec. Talent points are read live (Nock's
+  shared layer: Nock.TraitPointsByTab / Core.ScanSpec, Classic
+  GetTalentTabInfo as a fallback) and the Beast Mastery, Marksmanship and
+  Survival weight tables (RW.TREES) are blended by the share of points in
+  each tree, scaled by how many points are spent (15 = fully spec-driven, none
+  = the generic weights above). Key talents then multiply the stat they
+  improve (RW.TALENTS). It re-scores when talent points, the trait config
+  or your level change while the reward window is open. The spec is named in
+  the card and tooltip: "Nock pick (Marksmanship): ...". Override: Options
+  or /nock rewards spec auto | bm | mm | sv (NockCharDB.rewardsSpec).
+
   Option: NockCharDB.rewards (on by default), Options > Hunter tools,
   /nock rewards on | off.
 ]]
@@ -468,9 +479,45 @@ end
 local RW = {}
 Nock.Rewards = RW
 
+-- GENERIC hunter weights: used with no talents and as the base the trees blend from. Ratios, not a
+-- simulation. Agility is first because a hunter gets 2 ranged AP, plus crit and dodge, from each point
+-- (Classic). Attack power is 1 per point (ranged and melee alike), ranged AP the same unless a tree
+-- says otherwise. 1% crit or hit is worth about 18 / 14 AP of damage at hunter gear levels. Stamina,
+-- Intellect, Spirit and Strength follow in that order (Strength only adds melee AP for a hunter).
+-- Weapon DPS: a ranged weapon's DPS is most of a hunter's damage (14 AP is 1 DPS), melee DPS barely
+-- matters (Raptor Strike, Wing Clip), thrown has no AP scaling.
 RW.W = { agi = 2.4, ap = 1.0, rap = 1.0, crit = 18, hit = 14, sta = 0.5, int = 0.4, spi = 0.15, str = 0.2,
-  mp5 = 0.6, armor = 0.04, res = 0.3 }
-RW.DPS = { ranged = 14, thrown = 3, main = 2, off = 1 }
+  mp5 = 0.6, armor = 0.04, res = 0.3, dpsRanged = 14, dpsThrown = 3, dpsMain = 2, dpsOff = 1 }
+
+-- How each tree leans (only what differs from RW.W). These are the pure-tree tables; a real build blends
+-- them by points spent per tree (RW.Profile), so a 31/20 build is mostly its big tree and a 5-point
+-- dabbler barely moves.
+--   Marksmanship: ranged-only AP and the ranged weapon count for more (the build lives on Auto Shot,
+--     Aimed Shot, Multi-Shot) and crit is worth more because the tree raises crit chance and damage.
+--   Survival: crit is worth more (Killer Instinct, Lethal Shots-style crit stacking), Stamina more
+--     (Survivalist, Thick Hide), Strength a little more (the tree's melee hybrid strikes).
+--   Beast Mastery: the same damage stats, but Stamina and Intellect/mana count more: the pet is the
+--     damage, so staying alive and having mana for Mend Pet and shots keeps it fighting.
+RW.TREES = {
+  bm = { sta = 0.65, int = 0.55, mp5 = 0.8 },
+  mm = { rap = 1.15, crit = 20, dpsRanged = 15 },
+  sv = { crit = 20, sta = 0.65, str = 0.3 },
+}
+-- Talents read directly (Classic descriptions), applied on top of the blend so the points you really
+-- have count: Mortal Shots +6% ranged crit damage per rank (crit worth up to x1.30), Lightning
+-- Reflexes +3% Agility per rank (x1.15 at 5), Survivalist +2% health per rank (Stamina x1.10 at 5),
+-- Ranged Weapon Specialization +1% ranged damage per rank (ranged DPS x1.05 at 5).
+RW.TALENTS = {
+  { "mortal shots", "crit", 0.06 },
+  { "lightning reflexes", "agi", 0.03 },
+  { "survivalist", "sta", 0.02 },
+  { "ranged weapon specialization", "dpsRanged", 0.01 },
+}
+RW.FULL_POINTS = 15     -- at 15 spent points the trees fully drive the weights; below that they blend in
+RW.TREE_NAME = { bm = "Beast Mastery", mm = "Marksmanship", sv = "Survival" }
+RW.TREE_SHORT = { bm = "BM", mm = "MM", sv = "SV" }
+RW.NAMES_TREE = { bm = "bm", beast = "bm", mm = "mm", marks = "mm", marksmanship = "mm", sv = "sv", survival = "sv" }
+RW.cur = nil
 RW.NAMES = { agi = "Agility", ap = "Attack Power", rap = "Ranged Attack Power", sta = "Stamina", int = "Intellect",
   spi = "Spirit", str = "Strength", mp5 = "mana per 5 sec", armor = "Armor", res = "resistance" }
 RW.UPGRADE_PCT = 2          -- under this much either way is "same"
@@ -762,27 +809,33 @@ function RW.Usable(f)
   return true
 end
 
+local function Wt()
+  return RW.cur or RW.W
+end
+
 local function DpsOf(f, slot)
   if not f.dps then
     return 0
   end
+  local w = Wt()
   if slot == 18 then
-    return f.dps * ((f.equipLoc == "INVTYPE_THROWN") and RW.DPS.thrown or RW.DPS.ranged)
+    return f.dps * ((f.equipLoc == "INVTYPE_THROWN") and w.dpsThrown or w.dpsRanged)
   elseif slot == 17 then
-    return f.dps * RW.DPS.off
+    return f.dps * w.dpsOff
   end
-  return f.dps * RW.DPS.main
+  return f.dps * w.dpsMain
 end
 
 function RW.Score(f, slot)
   local s = 0
+  local w = Wt()
   for k, v in pairs(f.stats) do
-    local w = RW.W[k]
-    if w then
-      s = s + v * w
+    local x = w[k]
+    if x then
+      s = s + v * x
     end
   end
-  return s + (f.armor or 0) * RW.W.armor + DpsOf(f, slot)
+  return s + (f.armor or 0) * w.armor + DpsOf(f, slot)
 end
 
 local function KnowsDualWield()
@@ -922,12 +975,12 @@ function RW.StatText(f, c)
   end
   local keys = {}
   for k, v in pairs(diffs) do
-    if v ~= 0 and RW.W[k] then
+    if v ~= 0 and Wt()[k] then
       keys[#keys + 1] = k
     end
   end
   table.sort(keys, function(a, b)
-    local wa, wb = math.abs(diffs[a] * RW.W[a]), math.abs(diffs[b] * RW.W[b])
+    local wa, wb = math.abs(diffs[a] * Wt()[a]), math.abs(diffs[b] * Wt()[b])
     if wa ~= wb then
       return wa > wb
     end
@@ -1142,6 +1195,177 @@ function RW.Decide(rows)
   return out
 end
 
+function RW.SetSpec(which)
+  _G.NockCharDB = _G.NockCharDB or {}
+  _G.NockCharDB.rewardsSpec = RW.NAMES_TREE[which or ""] or nil
+  RW.Refresh()
+end
+
+function RW.Spec()
+  local db = _G.NockCharDB
+  return (type(db) == "table" and RW.NAMES_TREE[db.rewardsSpec or ""]) or "auto"
+end
+
+-- Spec: live talent points -> weights -------------------------------------------------------
+-- Points per tree {bm, mm, sv}: Nock's shared layer first (Nock.TraitPointsByTab reads Forever's
+-- C_Traits groups; GetTalentTabInfo is gone there), then what Core.ScanSpec last stored, then the
+-- Classic GetNumTalentTabs / GetTalentTabInfo for a client that still has them.
+function RW.Points()
+  if Nock.TraitPointsByTab then
+    local ok, a, b, c = pcall(Nock.TraitPointsByTab)
+    if ok and a ~= nil then
+      return tonumber(a) or 0, tonumber(b) or 0, tonumber(c) or 0, "traits"
+    end
+  end
+  local cp = Core.P and Core.P.points
+  if cp and ((cp.bm or 0) + (cp.mm or 0) + (cp.sv or 0)) > 0 then
+    return cp.bm or 0, cp.mm or 0, cp.sv or 0, "core"
+  end
+  if _G.GetNumTalentTabs and _G.GetTalentTabInfo then
+    local pts = { bm = 0, mm = 0, sv = 0 }
+    local ok = pcall(function()
+      for i = 1, _G.GetNumTalentTabs() do
+        local a, b, c = _G.GetTalentTabInfo(i)
+        local name, points
+        if type(a) == "string" then
+          name, points = a, c
+        else
+          name, points = b, c
+        end
+        name = type(name) == "string" and name:lower() or ""
+        points = tonumber(points) or 0
+        if name:find("beast", 1, true) then
+          pts.bm = points
+        elseif name:find("mark", 1, true) then
+          pts.mm = points
+        elseif name:find("surviv", 1, true) then
+          pts.sv = points
+        end
+      end
+    end)
+    if ok then
+      return pts.bm, pts.mm, pts.sv, "classic"
+    end
+  end
+  return 0, 0, 0, "none"
+end
+
+-- Ranks of the talents in RW.TALENTS: { [lowercase name] = rank }. Nock.TalentRanks reads the trait
+-- tree; the Classic GetTalentInfo loop is the fallback.
+function RW.TalentRanks()
+  local want = {}
+  for _, t in ipairs(RW.TALENTS) do
+    want[#want + 1] = t[1]
+  end
+  if Nock.TalentRanks then
+    local ok, r = pcall(Nock.TalentRanks, want)
+    if ok and type(r) == "table" then
+      return r
+    end
+  end
+  local out = {}
+  if _G.GetNumTalentTabs and _G.GetTalentInfo then
+    pcall(function()
+      for tab = 1, _G.GetNumTalentTabs() do
+        for i = 1, (_G.GetNumTalents and _G.GetNumTalents(tab) or 0) do
+          local name, _, _, _, rank = _G.GetTalentInfo(tab, i)
+          if type(name) == "string" then
+            out[name:lower()] = tonumber(rank) or 0
+          end
+        end
+      end
+    end)
+  end
+  return out
+end
+
+-- The weights in force right now. override = "bm" | "mm" | "sv" | nil (auto).
+-- Auto: each tree's share of the points you have spent, and the more points the more the trees
+-- count (conf = points / RW.FULL_POINTS, at most 1). No points: the generic weights.
+function RW.Profile(override)
+  if override == nil then
+    local db = _G.NockCharDB
+    override = type(db) == "table" and RW.NAMES_TREE[db.rewardsSpec or ""] or nil
+  end
+  local bm, mm, sv, src = RW.Points()
+  local pts = { bm = bm, mm = mm, sv = sv }
+  local total = bm + mm + sv
+  local frac, conf = {}, 0
+  if override then
+    frac[override] = 1
+    conf = 1
+  elseif total > 0 then
+    for k, v in pairs(pts) do
+      frac[k] = v / total
+    end
+    conf = math.min(1, total / RW.FULL_POINTS)
+  end
+  local w = {}
+  for k, base in pairs(RW.W) do
+    local blend = 0
+    for tree, fr in pairs(frac) do
+      local t = RW.TREES[tree]
+      blend = blend + fr * ((t and t[k]) or base)
+    end
+    w[k] = conf > 0 and (base * (1 - conf) + blend * conf) or base
+  end
+  local ranks = RW.TalentRanks()
+  local used = {}
+  for _, t in ipairs(RW.TALENTS) do
+    local r = tonumber(ranks[t[1]]) or 0
+    if r > 0 then
+      w[t[2]] = w[t[2]] * (1 + t[3] * r)
+      used[#used + 1] = string.format("%s %d", t[1], r)
+    end
+  end
+  -- name for the card: the tree that leads (or both leading trees for a hybrid)
+  local label
+  if override then
+    label = RW.TREE_NAME[override]
+  elseif total >= 5 then
+    local order = { "bm", "mm", "sv" }
+    table.sort(order, function(a, b)
+      if pts[a] ~= pts[b] then
+        return pts[a] > pts[b]
+      end
+      return a < b
+    end)
+    if pts[order[1]] >= total * 0.6 then
+      label = RW.TREE_NAME[order[1]]
+    else
+      label = RW.TREE_SHORT[order[1]] .. "/" .. RW.TREE_SHORT[order[2]]
+    end
+  end
+  return { w = w, label = label, override = override, points = pts, total = total, conf = conf, source = src,
+    talents = used }
+end
+
+-- The profile the scorer uses; w is what Score reads.
+function RW.UseProfile(override)
+  local pr = RW.Profile(override)
+  RW.profile = pr
+  RW.cur = pr.w
+  return pr
+end
+
+-- Plain words for /nock rewards and tests: "Marksmanship (auto, 5 BM / 31 MM / 15 SV): Agility 2.4, ..."
+function RW.Describe(pr)
+  pr = pr or RW.profile or RW.UseProfile()
+  local w = pr.w
+  local who
+  if pr.override then
+    who = RW.TREE_NAME[pr.override] .. " (set by you)"
+  elseif pr.label then
+    who = pr.label .. string.format(" (auto, %d BM / %d MM / %d SV)", pr.points.bm, pr.points.mm, pr.points.sv)
+  elseif pr.total > 0 then
+    who = string.format("generic, blending in (%d points spent)", pr.total)
+  else
+    who = "generic hunter (no talent points yet)"
+  end
+  return string.format("%s. Per point: Agility %.2f, attack power %.2f, ranged AP %.2f, Stamina %.2f, Intellect %.2f; "
+    .. "per 1%%: crit %.0f, hit %.0f; ranged DPS %.1f.", who, w.agi, w.ap, w.rap, w.sta, w.int, w.crit, w.hit, w.dpsRanged)
+end
+
 -- Reward buttons ---------------------------------------------------------------------------
 local function QuestLog()
   return _G.QuestInfoFrame and _G.QuestInfoFrame.questLog and true or false
@@ -1299,8 +1523,12 @@ function RW.Hide()
   RW.result = nil
 end
 
+local function Who(res)
+  return res.label and (" (" .. res.label .. ")") or ""
+end
+
 local function LineText(res, n)
-  local pre = n > 1 and "Nock pick: " or "Nock: "
+  local pre = (n > 1 and "Nock pick" or "Nock") .. Who(res) .. ": "
   if res.pick then
     local r = res.rows[res.pick]
     local why = RW.Reason(r)
@@ -1312,9 +1540,9 @@ local function LineText(res, n)
       local l = res.rows[res.later]
       s = s .. string.format(" %s becomes an upgrade at level %s.", l.name, tostring(l.level))
     end
-    return "Nock: " .. s
+    return "Nock" .. Who(res) .. ": " .. s
   end
-  return "Nock: no upgrade here, and nothing sells for anything."
+  return "Nock" .. Who(res) .. ": no upgrade here, and nothing sells for anything."
 end
 
 -- Draw: the result is kept in RW.result so tooltips can use it.
@@ -1385,11 +1613,11 @@ function RW.Tooltip(btn)
   local n = RW.NumChoices()
   local head
   if res.pick == i and n > 1 then
-    head = "Nock pick for a hunter"
+    head = "Nock pick for a hunter" .. Who(res)
   elseif res.sell == i and n > 1 then
-    head = "Nock pick: best to sell"
+    head = "Nock pick: best to sell" .. Who(res)
   else
-    head = "Nock"
+    head = "Nock" .. Who(res)
   end
   local text
   if res.sell == i then
@@ -1426,7 +1654,9 @@ function RW.Refresh()
   for i = 1, n do
     rows[i] = ChoiceRow(i)
   end
+  local pr = RW.UseProfile()
   local res = RW.Decide(rows)
+  res.label = pr.label
   if res.pending then
     RW.result = nil
     RW.tries = RW.tries + 1
@@ -1448,7 +1678,7 @@ function RW.Refresh()
         if not res.pending then
           local skipped = {}
           local j = 0
-          local mapped = { rows = {}, pick = nil, sell = nil, later = res.later, sellPrice = res.sellPrice }
+          local mapped = { rows = {}, pick = nil, sell = nil, later = res.later, sellPrice = res.sellPrice, label = pr.label }
           for i, row in ipairs(rows) do
             if RW.Facts(row.link) then
               j = j + 1
@@ -1502,7 +1732,8 @@ end
 local rwev = CreateFrame and CreateFrame("Frame")
 if rwev then
   for _, e in ipairs({ "PLAYER_LOGIN", "QUEST_COMPLETE", "QUEST_DETAIL", "QUEST_ITEM_UPDATE", "QUEST_FINISHED",
-    "GET_ITEM_INFO_RECEIVED", "PLAYER_EQUIPMENT_CHANGED" }) do
+    "GET_ITEM_INFO_RECEIVED", "PLAYER_EQUIPMENT_CHANGED", "CHARACTER_POINTS_CHANGED", "PLAYER_TALENT_UPDATE",
+    "TRAIT_CONFIG_UPDATED", "PLAYER_LEVEL_UP" }) do
     pcall(rwev.RegisterEvent, rwev, e)
   end
   rwev:SetScript("OnEvent", function(_, event, arg1)
@@ -1518,6 +1749,13 @@ if rwev then
     elseif event == "QUEST_COMPLETE" or event == "QUEST_DETAIL" then
       RW.tries = 0
       RW.Queue(0.1)
+    elseif event == "CHARACTER_POINTS_CHANGED" or event == "PLAYER_TALENT_UPDATE" or event == "TRAIT_CONFIG_UPDATED"
+      or event == "PLAYER_LEVEL_UP" then
+      -- talents or level changed: if the reward screen is open, score it again with the new weights
+      if HostFrame() then
+        RW.tries = 0
+        RW.Queue(0.4)
+      end
     else
       RW.Queue(0.2)
     end
@@ -1531,16 +1769,35 @@ if rwBase then
     local m = string.lower(strtrim and strtrim(msg or "") or (msg or ""))
     local cmd, rest = m:match("^(%S+)%s*(.*)$")
     if cmd == "rewards" then
+      local sub, arg = rest:match("^(%S+)%s*(.*)$")
+      if sub == "spec" then
+        if arg == "auto" or arg == "" then
+          _G.NockCharDB = _G.NockCharDB or {}
+          if arg == "auto" then
+            _G.NockCharDB.rewardsSpec = nil
+          end
+        elseif RW.NAMES_TREE[arg] then
+          _G.NockCharDB = _G.NockCharDB or {}
+          _G.NockCharDB.rewardsSpec = RW.NAMES_TREE[arg]
+        else
+          Core.Say("/nock rewards spec auto | bm | mm | sv")
+          return
+        end
+        RW.Refresh()
+        Core.Say("Reward picks use: " .. RW.Describe(RW.UseProfile()))
+        return
+      end
       if rest == "on" or rest == "off" then
         RW.SetEnabled(rest == "on")
       end
       Core.Say("Quest reward picks: " .. (RW.Enabled() and "on" or "off")
         .. ". Marks the best reward for a hunter when you turn a quest in. It never picks for you.")
+      Core.Say("Spec: " .. RW.Describe(RW.UseProfile()))
       return
     end
     rwBase(msg)
     if m == "help" then
-      Core.Say("/nock rewards on | off — mark the best quest reward for a hunter")
+      Core.Say("/nock rewards on | off — mark the best quest reward for a hunter; /nock rewards spec auto | bm | mm | sv")
     end
   end
 end

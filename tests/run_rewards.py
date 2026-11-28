@@ -71,7 +71,14 @@ function item(id, name, o)
   ITEMS[id] = { name = name, equipLoc = o.loc or "", classID = o.cls, subID = o.sub, subName = o.subName, minLevel = o.req or 0,
     sell = o.sell or 0, lines = lines }
 end
+REAL_TB, REAL_TR = Nock.TraitPointsByTab, Nock.TalentRanks
+POINTS = { 0, 0, 0 }   -- BM, MM, SV points spent
+RANKS = {}             -- lowercase talent name -> rank
+Nock.TraitPointsByTab = function() return POINTS[1], POINTS[2], POINTS[3] end
+Nock.TalentRanks = function(names) local o = {}; for _, n in ipairs(names) do o[n] = RANKS[n] or 0 end return o end
 function reset()
+  POINTS = { 0, 0, 0 }; RANKS = {}
+  NockCharDB.rewardsSpec = nil
   ITEMS, UNCACHED, REQUESTED, WORN, CHOICES = {}, {}, {}, {}, {}
   CALLS.choose, CALLS.complete = 0, 0
   DUALWIELD = false; LEVEL = 32
@@ -383,6 +390,148 @@ function GetQuestLogChoiceInfo(i) return "x", 1, 1 end
 show()''')
 check(L('RW.result.pick') == 1, "quest log preview: judged through GetQuestLogItemLink (pick=%s)" % L('RW.result.pick'))
 run(r'''QuestInfoFrame.questLog = false; GetNumQuestLogChoices = nil''')
+
+# ---- 11. Spec: detection, blend, talents, override -------------------------------------------------------------------------
+W = lambda k: L('RW.Profile().w.%s' % k)
+G = lambda k: L('RW.W.%s' % k)
+approx = lambda a, b: abs(a - b) < 0.001
+run("reset()")
+check(L('RW.Profile().label') is None and all(approx(W(k), G(k)) for k in ("agi", "crit", "sta", "rap", "int", "dpsRanged")), "no talent points: generic hunter weights, no spec named")
+run("POINTS = { 0, 31, 20 }")
+check(L('RW.Profile().label') == "Marksmanship" and approx(W('crit'), 20) and approx(W('rap'), 31/51*1.15 + 20/51*1.0), "31 MM / 20 SV: Marksmanship, blended by points (rap %.3f, crit %.1f)" % (W('rap'), W('crit')))
+run("POINTS = { 0, 5, 0 }")
+check(L('RW.Profile().label') == "Marksmanship" and approx(W('crit'), 18 + (20 - 18) * 5/15) and approx(W('rap'), 1 + 0.15 * 5/15), "5 points: the tree only blends in a third (crit %.2f)" % W('crit'))
+run("POINTS = { 0, 2, 0 }")
+check(L('RW.Profile().label') is None and 18 < W("crit") < 18.3, "2 points: not named, barely moves (crit %.3f)" % W('crit'))
+run("POINTS = { 15, 15, 15 }")
+check(L('RW.Profile().label') in ("BM/MM",), "even split: hybrid label (%s)" % L('RW.Profile().label'))
+check(approx(W('sta'), (0.65 + 0.5 + 0.65) / 3) and approx(W('crit'), (18 + 20 + 20) / 3), "even split averages the three trees")
+run("POINTS = { 0, 31, 20 }; NockCharDB.rewardsSpec = 'bm'")
+check(L('RW.Profile().label') == "Beast Mastery" and approx(W('sta'), 0.65) and approx(W('crit'), 18), "override beats the points (Beast Mastery weights)")
+run("NockCharDB.rewardsSpec = nil; POINTS = { 0, 0, 0 }; NockCharDB.rewardsSpec = 'sv'")
+check(approx(W('crit'), 20) and L('RW.Profile().label') == "Survival", "override works with no talents at all")
+run("reset(); RANKS = { ['lightning reflexes'] = 5, ['mortal shots'] = 5, ['survivalist'] = 5, ['ranged weapon specialization'] = 5 }")
+check(approx(W('agi'), 2.4 * 1.15) and approx(W('crit'), 18 * 1.3) and approx(W('sta'), 0.5 * 1.1) and approx(W('dpsRanged'), 14 * 1.05), "key talents multiply: Lightning Reflexes x1.15 Agi, Mortal Shots x1.30 crit, Survivalist x1.10 Sta, RWS x1.05 ranged DPS")
+run("reset(); RANKS = { ['lightning reflexes'] = 2 }")
+check(approx(W('agi'), 2.4 * 1.06), "partial ranks scale (2/5 Lightning Reflexes = x1.06)")
+
+# shared-layer fallbacks for the points
+run("reset(); SAVE_TP = Nock.TraitPointsByTab; Nock.TraitPointsByTab = nil; Core = Nock.Core; Core.P.points.bm, Core.P.points.mm, Core.P.points.sv = 0, 20, 0")
+check(list(L('{RW.Points()}').values()) == [0, 20, 0, "core"], "falls back to the points Core.ScanSpec stored")
+run("Core.P.points.mm = 0; function GetNumTalentTabs() return 3 end; function GetNumTalents() return 0 end; function GetTalentTabInfo(i) return ({ 'Beast Mastery', 'Marksmanship', 'Survival' })[i], 'x', ({ 3, 9, 14 })[i] end")
+check(list(L('{RW.Points()}').values()) == [3, 9, 14, "classic"], "then the Classic GetTalentTabInfo (name, icon, points)")
+run("GetNumTalentTabs = nil; GetTalentTabInfo = nil; Nock.TraitPointsByTab = SAVE_TP")
+
+# scenario 1: Agility item vs ranged AP + crit item
+S1 = r'''reset()
+item(100, "Agile Jerkin", { loc = "INVTYPE_CHEST", cls = 4, sub = 2, subName = "Leather", stats = { "+9 Agility", "+3 Stamina" } })
+item(101, "Sharpshooter Vest", { loc = "INVTYPE_CHEST", cls = 4, sub = 2, subName = "Leather", equip = { "Increases ranged attack power by 4.", "Improves your chance to get a critical strike by 1%." } })
+choose(100, 101)'''
+def pick_with(setup):
+    run(S1); run(setup); run("show()")
+    return L('RW.result.pick'), L('RW.result.label')
+p, lab = pick_with("")
+check(p == 1 and lab is None, "generic: the Agility item wins (22.0 vs 23.1) (pick=%s)" % p)
+p, lab = pick_with("POINTS = { 0, 31, 20 }; RANKS = { ['mortal shots'] = 5 }")
+check(p == 2 and lab == "Marksmanship", "Marksmanship: the ranged AP + crit item wins (pick=%s, %s)" % (p, lab))
+p, lab = pick_with("POINTS = { 0, 0, 31 }; RANKS = { ['lightning reflexes'] = 5 }")
+check(p == 1 and lab == "Survival", "Survival with Lightning Reflexes: Agility item wins (pick=%s, %s)" % (p, lab))
+p, lab = pick_with("POINTS = { 31, 0, 0 }")
+check(p == 1 and lab == "Beast Mastery", "Beast Mastery: Agility item wins (pick=%s, %s)" % (p, lab))
+p, lab = pick_with("POINTS = { 0, 0, 31 }")
+check(p == 2, "Survival without Lightning Reflexes leans to crit: the ranged AP + crit item wins narrowly (pick=%s)" % p)
+S2 = r'''reset()
+item(102, "Keen Tunic", { loc = "INVTYPE_CHEST", cls = 4, sub = 2, subName = "Leather", stats = { "+4 Agility", "+1 Stamina" } })
+item(103, "Sturdy Tunic", { loc = "INVTYPE_CHEST", cls = 4, sub = 2, subName = "Leather", stats = { "+2 Agility", "+6 Stamina", "+4 Intellect" } })
+choose(102, 103)'''
+def pick2(setup):
+    run(S2); run(setup); run("show()")
+    return L('RW.result.pick')
+check(pick2("") == 1, "generic: +4 Agility beats the Stamina/Intellect tunic")
+check(pick2("POINTS = { 31, 0, 0 }") == 2, "Beast Mastery: Stamina and Intellect (pet uptime, mana) tip it to the sturdy tunic")
+check(pick2("POINTS = { 0, 31, 0 }") == 1, "Marksmanship: keeps the Agility tunic")
+check(pick2("POINTS = { 0, 0, 31 }; RANKS = { ['lightning reflexes'] = 5 }") == 1, "Survival with Lightning Reflexes: keeps the Agility tunic")
+
+# the card, tooltip and tag name the spec
+run(S1); run("POINTS = { 0, 31, 20 }; RANKS = { ['mortal shots'] = 5 }; show()")
+check(L('lineText()').startswith("Nock pick (Marksmanship): Sharpshooter Vest"), "card: 'Nock pick (Marksmanship): ...' (%s)" % L('lineText()'))
+tt = list(L('tooltipFor(2)').values())
+check(any("Nock pick for a hunter (Marksmanship)" in x for x in tt), "tooltip header names the spec (%s)" % tt)
+check(L('tagOf(2)').startswith("Nock pick") and "(" not in L('tagOf(2)'), "button tag stays short (%s)" % L('tagOf(2)'))
+run(S1); run("show()")
+check(L('lineText()').startswith("Nock pick: "), "no talents: no spec in the card (%s)" % L('lineText()'))
+
+# talents or level change while the reward window is open: the visible tags are recomputed
+run(S1); run("show()")
+check(L('RW.result.pick') == 1 and L('RW.result.label') is None, "window open, generic: pick 1")
+run("""POINTS = { 0, 31, 20 }; RANKS = { ['mortal shots'] = 5 }
+for _, f in ipairs(FRAMES) do local fn = f.GetScript and f:GetScript("OnEvent"); if fn then pcall(fn, f, "CHARACTER_POINTS_CHANGED") end end
+RunTimers(1)""")
+check(L('RW.result.pick') == 2 and "Marksmanship" in L('lineText()') and "Nock pick" in L('tagOf(2)') and not L('borderOn(1)') and L('borderOn(2)'), "CHARACTER_POINTS_CHANGED: tags, border and card move to the new pick (%s)" % L('lineText()'))
+run("""POINTS = { 0, 0, 31 }; RANKS = { ['lightning reflexes'] = 5 }
+for _, f in ipairs(FRAMES) do local fn = f.GetScript and f:GetScript("OnEvent"); if fn then pcall(fn, f, "TRAIT_CONFIG_UPDATED") end end
+RunTimers(1)""")
+check(L('RW.result.pick') == 1 and "Survival" in L('lineText()'), "TRAIT_CONFIG_UPDATED: re-scored again (%s)" % L('lineText()'))
+run("""POINTS = { 0, 31, 20 }; RANKS = { ['mortal shots'] = 5 }
+for _, f in ipairs(FRAMES) do local fn = f.GetScript and f:GetScript("OnEvent"); if fn then pcall(fn, f, "PLAYER_TALENT_UPDATE") end end
+RunTimers(1)""")
+check(L('RW.result.pick') == 2, "PLAYER_TALENT_UPDATE: re-scored")
+run("""QuestFrame:Hide(); REFRESHES = 0
+local orig = RW.Refresh; RW.Refresh = function() REFRESHES = REFRESHES + 1; return orig() end
+POINTS = { 0, 0, 31 }
+for _, f in ipairs(FRAMES) do local fn = f.GetScript and f:GetScript("OnEvent"); if fn then pcall(fn, f, "CHARACTER_POINTS_CHANGED") end end
+RunTimers(1); RW.Refresh = orig; QuestFrame:Show()""")
+check(L('REFRESHES') == 0, "no reward window open: a talent change does no work")
+run(S1 + "\nLEVEL = 32\nitem(104, 'Mail Vest', { loc = 'INVTYPE_CHEST', cls = 4, sub = 3, subName = 'Mail', armor = 150, stats = { '+30 Agility' } })\nchoose(100, 104)\nshow()")
+check(L('RW.result.rows[2].state') == "later", "level 32: mail waits")
+run("""LEVEL = 40
+for _, f in ipairs(FRAMES) do local fn = f.GetScript and f:GetScript("OnEvent"); if fn then pcall(fn, f, "PLAYER_LEVEL_UP") end end
+RunTimers(1)""")
+check(L('RW.result.pick') == 2, "PLAYER_LEVEL_UP with the window open: mail becomes the pick at 40")
+
+# override: slash, saved value, auto, bad word
+run(S1); run("POINTS = { 0, 0, 31 }; RANKS = { ['lightning reflexes'] = 5 }; show()")
+check(L('RW.result.pick') == 1, "auto (Survival + Lightning Reflexes): pick 1")
+run("SlashCmdList.NOCK('rewards spec mm')")
+check(L('NockCharDB.rewardsSpec') == "mm" and L('RW.Spec()') == "mm" and L('RW.result.label') == "Marksmanship", "/nock rewards spec mm: saved and used, card says Marksmanship (%s)" % L('RW.result.label'))
+run("SlashCmdList.NOCK('rewards spec nonsense')")
+check(L('NockCharDB.rewardsSpec') == "mm", "a bad word changes nothing")
+run("SlashCmdList.NOCK('rewards spec auto')")
+check(L('NockCharDB.rewardsSpec') is None and L('RW.Spec()') == "auto" and L('RW.result.label') == "Survival", "/nock rewards spec auto: back to reading the talents")
+for word, label in [("bm", "Beast Mastery"), ("sv", "Survival"), ("marks", "Marksmanship")]:
+    run("SlashCmdList.NOCK('rewards spec %s')" % word)
+    check(L('RW.result.label') == label, "spec word '%s' -> %s" % (word, label))
+run("RW.SetSpec('mm')")
+check(L('NockCharDB.rewardsSpec') == "mm", "Options setter works")
+run("RW.SetSpec('auto')")
+check(L('NockCharDB.rewardsSpec') is None, "Options setter: auto clears the override")
+run("CHAT_LOG = {}; SlashCmdList.NOCK('rewards')")
+out = " ".join(str(v) for v in L('CHAT_LOG').values())
+check("Spec:" in out and "Agility" in out and "crit" in out, "/nock rewards prints the spec and the weights in force (%s)" % out[:140])
+
+# the real trait-tree readers (fake C_Traits): spent points per tab and talent ranks by name
+run(r'''
+NAMES = { [1] = "Lightning Reflexes", [2] = "Mortal Shots", [3] = "Endurance Training" }
+RANKS_REAL = { [1] = 4, [2] = 5, [3] = 0 }
+C_ClassTalents = { GetActiveConfigID = function() return 1 end }
+C_Traits = {
+  GetConfigInfo = function() return { treeIDs = { 9 } } end,
+  GetTreeNodes = function() return { 1, 2, 3 } end,
+  GetNodeInfo = function(cfg, id) return { ID = id, entryIDs = { id * 10 }, currentRank = RANKS_REAL[id], maxRanks = 5 } end,
+  GetEntryInfo = function(cfg, e) return { definitionID = e * 10 } end,
+  GetDefinitionInfo = function(d) return { overrideName = NAMES[d / 100] } end,
+  GetGroupDisplayInfoByTreeID = function() return { { groupID = 11, displayName = "Beast Mastery" }, { groupID = 12, displayName = "Marksmanship" }, { groupID = 13, displayName = "Survival" } } end,
+  GetGroupCurrencyInfo = function() return { { traitNodeGroupID = 11, currencyInfos = { { spent = 3 } } }, { traitNodeGroupID = 12, currencyInfos = { { spent = 22 } } }, { traitNodeGroupID = 13, currencyInfos = { { spent = 8 } } } } end,
+}
+Nock.TraitPointsByTab, Nock.TalentRanks = REAL_TB, REAL_TR
+''')
+check(list(L('{RW.Points()}').values()) == [3, 22, 8, "traits"], "real reader: points per tab from the trait groups (3 BM / 22 MM / 8 SV)")
+r = L('Nock.TalentRanks({ "lightning reflexes", "mortal shots", "endurance training", "survivalist" })')
+check(r["lightning reflexes"] == 4 and r["mortal shots"] == 5 and r["endurance training"] == 0 and r["survivalist"] == 0, "real reader: ranks by talent name (absent talents are 0)")
+check(approx(L('RW.Profile().w.agi'), 2.4 * 1.12) and approx(L('RW.Profile().w.crit') / 1.3, L('RW.Profile().w.crit') / 1.3) and L('RW.Profile().label') == "Marksmanship", "live profile through the real readers: Lightning Reflexes 4/5 = Agility x1.12, Marksmanship")
+run("C_Traits = nil; C_ClassTalents = nil")
+check(L('Nock.TalentRanks({ "mortal shots" })') is None, "no trait API: ranks are nil, scoring carries on")
+run("Nock.TraitPointsByTab, Nock.TalentRanks = function() return POINTS[1], POINTS[2], POINTS[3] end, function(names) local o = {}; for _, n in ipairs(names) do o[n] = RANKS[n] or 0 end return o end")
 
 print()
 if fails:

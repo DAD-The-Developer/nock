@@ -570,6 +570,22 @@ function Nock.UnspentTalentPoints()
   return UnspentPoints(idx)
 end
 
+-- Ranks of named talents ({ "lightning reflexes", ... } lowercase) read from the trait tree, for
+-- Nock.Rewards. Returns { [name] = rank } (0 when the talent isn't in the tree), or nil with no trait API.
+function Nock.TalentRanks(names)
+  local ok, idx = pcall(TalentIndex)
+  if not ok or not idx then
+    return nil
+  end
+  local out = {}
+  for _, name in ipairs(names or {}) do
+    local key = string.lower(name)
+    local nodeID = idx.byName[key]
+    out[key] = nodeID and NodeRank(idx, nodeID) or 0
+  end
+  return out
+end
+
 -- Points per tab, for Nock's spec detection (the old GetTalentTabInfo is gone).
 function Nock.TraitPointsByTab()
   if not (TraitsReady() and C_Traits.GetGroupDisplayInfoByTreeID and C_Traits.GetGroupCurrencyInfo) then

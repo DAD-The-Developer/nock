@@ -348,6 +348,20 @@ Intensity (Low, Medium, High). Both are on by default.
 Works on Blizzard's bars, and on Bartender4, Dominos and ElvUI bars when
 Nock can find their buttons.
 
+Reward picks follow your spec (new in 3.12.0)
+---------------------------------------------
+Nock reads your talent points live. Each tree (Beast Mastery, Marksmanship,
+Survival) has its own stat weights; your build blends them by the share of
+points in each tree, and the more points you have spent the more they count
+(15 points = fully spec-driven, none = generic hunter weights). Marksmanship
+values ranged attack power, crit and ranged DPS more, Survival values crit,
+Stamina and Strength more, Beast Mastery values Stamina, Intellect and mana
+more. Mortal Shots, Lightning Reflexes, Survivalist and Ranged Weapon
+Specialization then multiply the stat they improve. The spec is named on the
+card and in the tooltip. If talents or level change while the quest window is
+open, the pick is scored again. Force a tree with Options > Reward spec or
+/nock rewards spec auto | bm | mm | sv. /nock rewards shows the weights.
+
 Best quest reward for a hunter (new in 3.11.0)
 ----------------------------------------------
 When a quest offers a choice of rewards, Nock scores each one for a hunter and

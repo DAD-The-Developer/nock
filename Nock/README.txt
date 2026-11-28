@@ -22,6 +22,15 @@ If the game says it is out of date, enable "Load out of date AddOns"
 once, then tell me the interface number from /dump select(4, GetBuildInfo()).
 
 
+New in 3.12.0
+The best-reward pick follows your spec. Nock reads your talent points live
+and blends the Beast Mastery, Marksmanship and Survival weights by points
+spent (generic hunter weights with no talents), and counts Mortal Shots,
+Lightning Reflexes, Survivalist and Ranged Weapon Specialization directly.
+The card names the spec ("Nock pick (Marksmanship): ..."). It re-scores if
+your talents or level change with the quest window open. Override with
+/nock rewards spec auto | bm | mm | sv or in Options.
+
 New in 3.11.0
 Turning a quest in now shows the best reward for a hunter: a gold border and
 a small "Nock pick" tag on that choice, plus a short reason in its tooltip

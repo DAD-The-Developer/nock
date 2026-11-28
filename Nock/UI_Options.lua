@@ -154,6 +154,19 @@ local function Build(page)
   if Rewards then
     add("Best quest reward for a hunter", "When you turn a quest in, Nock marks the best reward with a gold border and a small Nock pick tag, and every choice shows how much of an upgrade it is over what you wear (+12%, same, downgrade, new slot). A short reason is in the tooltip and under the quest window. Nothing is ever chosen for you. If nothing is an upgrade it picks the one that sells for the most. Also /nock rewards on | off.",
       function() return Rewards.Enabled() end, function(on) Rewards.SetEnabled(on) end)
+    local rLab = child:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    EnsureFont(rLab, m.body or 16, "OUTLINE")
+    rLab:SetPoint("TOPLEFT", 48, child._y)
+    rLab:SetText("Reward spec")
+    rLab:SetTextColor(0.95, 0.88, 0.55)
+    local rSeg = L.Segmented(child, {
+      { "Auto", "auto" }, { "BM", "bm" }, { "MM", "mm" }, { "SV", "sv" },
+    }, function() return Rewards.Spec() end, function(val) Rewards.SetSpec(val) end,
+      360, "Which hunter tree the reward picker scores for. Auto reads your talent points live and blends the three trees by points spent (generic hunter weights with no talents). BM, MM or SV forces one. Also /nock rewards spec auto | bm | mm | sv.")
+    rSeg:SetPoint("TOPLEFT", 150, child._y + 4)
+    page.segs = page.segs or {}
+    page.segs[#page.segs + 1] = rSeg
+    child._y = child._y - 48
   end
 
   -- 3.7.0: the Dashboard (bags, ammo, tracked quests), for a corner of the
